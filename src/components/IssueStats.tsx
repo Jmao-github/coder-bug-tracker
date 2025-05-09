@@ -1,74 +1,21 @@
 
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { ArrowUp } from "lucide-react";
-import Chart from 'chart.js/auto';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+const issuesData = [
+  { name: 'Apr 22', issues: 1 },
+  { name: 'Apr 23', issues: 0 },
+  { name: 'Apr 24', issues: 2 },
+  { name: 'Apr 25', issues: 1 },
+  { name: 'Apr 26', issues: 0 },
+  { name: 'Apr 27', issues: 0 },
+  { name: 'Apr 28', issues: 4 },
+];
 
 const IssueStats = () => {
-  const chartRef = useRef<HTMLCanvasElement>(null);
-  const chart = useRef<Chart | null>(null);
-  
-  useEffect(() => {
-    if (chartRef.current) {
-      // Destroy existing chart
-      if (chart.current) {
-        chart.current.destroy();
-      }
-
-      const ctx = chartRef.current.getContext('2d');
-      if (ctx) {
-        chart.current = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: ['Apr 22', 'Apr 23', 'Apr 24', 'Apr 25', 'Apr 26', 'Apr 27', 'Apr 28'],
-            datasets: [{
-              label: 'New Issues',
-              data: [1, 0, 2, 1, 0, 0, 4],
-              borderColor: '#9b87f5',
-              backgroundColor: 'rgba(155, 135, 245, 0.1)',
-              tension: 0.4,
-              fill: true,
-            }]
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: false,
-              },
-              tooltip: {
-                mode: 'index',
-                intersect: false,
-              }
-            },
-            scales: {
-              y: {
-                beginAtZero: true,
-                max: 5,
-                ticks: {
-                  stepSize: 1
-                }
-              },
-              x: {
-                grid: {
-                  display: false
-                }
-              }
-            }
-          }
-        });
-      }
-    }
-
-    return () => {
-      if (chart.current) {
-        chart.current.destroy();
-      }
-    };
-  }, []);
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <Card className="bg-white shadow-sm rounded-lg overflow-hidden">
@@ -111,7 +58,35 @@ const IssueStats = () => {
         </CardHeader>
         <CardContent>
           <div className="h-[120px]">
-            <canvas ref={chartRef}></canvas>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={issuesData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis 
+                  domain={[0, 5]} 
+                  ticks={[0, 1, 2, 3, 4, 5]}
+                  tick={{ fontSize: 10 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip />
+                <Line
+                  type="monotone"
+                  dataKey="issues"
+                  name="New Issues"
+                  stroke="#9b87f5"
+                  strokeWidth={2}
+                  activeDot={{ r: 4 }}
+                  dot={{ strokeWidth: 2, r: 4 }}
+                  fill="rgba(155, 135, 245, 0.1)"
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </CardContent>
       </Card>
