@@ -9,13 +9,169 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      comments: {
+        Row: {
+          author_name: string
+          body: string
+          created_at: string
+          id: string
+          issue_id: string
+        }
+        Insert: {
+          author_name: string
+          body: string
+          created_at?: string
+          id?: string
+          issue_id: string
+        }
+        Update: {
+          author_name?: string
+          body?: string
+          created_at?: string
+          id?: string
+          issue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "comments_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "issues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      issue_status_logs: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          issue_id: string
+          new_status: string
+          old_status: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          issue_id: string
+          new_status: string
+          old_status: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          issue_id?: string
+          new_status?: string
+          old_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_status_logs_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "issues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      issue_tags: {
+        Row: {
+          issue_id: string
+          tag_name: string
+        }
+        Insert: {
+          issue_id: string
+          tag_name: string
+        }
+        Update: {
+          issue_id?: string
+          tag_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_tags_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_tag_name_fkey"
+            columns: ["tag_name"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      issues: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          description: string | null
+          id: string
+          ready_for_delivery: boolean | null
+          segment: string
+          status: string
+          submitted_by: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          ready_for_delivery?: boolean | null
+          segment?: string
+          status?: string
+          submitted_by: string
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          ready_for_delivery?: boolean | null
+          segment?: string
+          status?: string
+          submitted_by?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tags: {
+        Row: {
+          created_at: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      determine_segment: {
+        Args: { tags: string[] }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

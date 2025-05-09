@@ -1,34 +1,27 @@
 
 import React from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useForm } from 'react-hook-form';
+import { createIssue } from '@/services/issueService';
+import { NewIssue } from '@/types/issueTypes';
 
 interface NewIssueFormData {
   title: string;
   description: string;
-  reporter: {
-    name: string;
-    email?: string;
-  };
+  submitted_by: string;
+  email?: string;
   tags: string;
 }
 
 interface NewIssueDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: {
-    title: string;
-    description: string;
-    reporter: {
-      name: string;
-      email?: string;
-    };
-    tags: string[];
-  }) => void;
+  onSubmit: (data: any) => void;
 }
 
 const NewIssueDialog: React.FC<NewIssueDialogProps> = ({ open, onOpenChange, onSubmit }) => {
@@ -36,11 +29,21 @@ const NewIssueDialog: React.FC<NewIssueDialogProps> = ({ open, onOpenChange, onS
     defaultValues: {
       title: '',
       description: '',
-      reporter: {
-        name: '',
-        email: '',
-      },
+      submitted_by: '',
+      email: '',
       tags: '',
+    },
+  });
+  
+  const queryClient = useQueryClient();
+
+  // Mutation to create a new issue
+  const issueMutation = useMutation({
+    mutationFn: (issue: NewIssue) => createIssue(issue),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['issues'] });
+      reset();
+      onOpenChange(false);
     },
   });
 
@@ -52,18 +55,24 @@ const NewIssueDialog: React.FC<NewIssueDialogProps> = ({ open, onOpenChange, onS
       .filter(Boolean)
       .map(tag => tag.startsWith('#') ? tag : `#${tag}`);
 
-    onSubmit({
+    const newIssue: NewIssue = {
       title: data.title,
       description: data.description,
-      reporter: data.reporter,
-      tags: formattedTags
-    });
+      submitted_by: data.submitted_by,
+      assigned_to: null,
+      tags: formattedTags,
+      status: 'pending'
+    };
 
-    reset();
+    issueMutation.mutate(newIssue);
+    onSubmit(newIssue);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (!isOpen) reset();
+      onOpenChange(isOpen);
+    }}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New Issue</DialogTitle>
@@ -99,25 +108,25 @@ const NewIssueDialog: React.FC<NewIssueDialogProps> = ({ open, onOpenChange, onS
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="reporter-name">Your Name</Label>
+              <Label htmlFor="submitted_by">Your Name</Label>
               <Input 
-                id="reporter-name"
+                id="submitted_by"
                 placeholder="Your name"
-                {...register('reporter.name', { required: true })}
-                className={errors.reporter?.name ? 'border-red-500' : ''}
+                {...register('submitted_by', { required: true })}
+                className={errors.submitted_by ? 'border-red-500' : ''}
               />
-              {errors.reporter?.name && (
+              {errors.submitted_by && (
                 <p className="text-xs text-red-500">Name is required</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="reporter-email">Your Email (optional)</Label>
+              <Label htmlFor="email">Your Email (optional)</Label>
               <Input 
-                id="reporter-email"
+                id="email"
                 placeholder="your.email@example.com"
                 type="email"
-                {...register('reporter.email')}
+                {...register('email')}
               />
             </div>
           </div>
@@ -140,10 +149,13 @@ const NewIssueDialog: React.FC<NewIssueDialogProps> = ({ open, onOpenChange, onS
               type="button" 
               variant="outline" 
               onClick={() => onOpenChange(false)}
+              disabled={issueMutation.isPending}
             >
               Cancel
             </Button>
-            <Button type="submit">Submit Issue</Button>
+            <Button type="submit" disabled={issueMutation.isPending}>
+              {issueMutation.isPending ? 'Submitting...' : 'Submit Issue'}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -1,63 +1,53 @@
 
 import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageSquare } from "lucide-react";
-
-interface Comment {
-  id: string;
-  author: {
-    name: string;
-    avatar?: string;
-  };
-  content: string;
-  timestamp: string;
-}
+import { fetchComments, addComment } from '@/services/issueService';
+import { NewComment } from '@/types/issueTypes';
+import { toast } from 'sonner';
 
 interface CommentSectionProps {
   issueId: string;
 }
 
 const CommentSection: React.FC<CommentSectionProps> = ({ issueId }) => {
-  const [comments, setComments] = useState<Comment[]>([
-    {
-      id: '1',
-      author: { name: 'Jason Zhou' },
-      content: 'Thanks for reporting this! We\'ll look into it.',
-      timestamp: 'May 1, 2025 - 10:23 AM'
-    },
-    {
-      id: '2',
-      author: { name: 'Dev Team' },
-      content: 'This appears to be related to session caching. We\'re working on a fix.',
-      timestamp: 'May 2, 2025 - 2:45 PM'
-    }
-  ]);
-  
   const [newComment, setNewComment] = useState('');
+  const [authorName, setAuthorName] = useState('Community Manager');
+  const queryClient = useQueryClient();
+  
+  // Fetch comments for this issue
+  const { data: comments = [], isLoading } = useQuery({
+    queryKey: ['comments', issueId],
+    queryFn: () => fetchComments(issueId),
+  });
+  
+  // Add comment mutation
+  const commentMutation = useMutation({
+    mutationFn: (comment: NewComment) => addComment(comment),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments', issueId] });
+      setNewComment('');
+    },
+  });
 
   const handleSubmitComment = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newComment.trim()) return;
+    if (!newComment.trim() || !authorName.trim()) {
+      toast.error('Please provide both your name and comment');
+      return;
+    }
     
-    const comment: Comment = {
-      id: Date.now().toString(),
-      author: { name: 'Community Manager' },
-      content: newComment,
-      timestamp: new Date().toLocaleString('en-US', { 
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      })
+    const comment: NewComment = {
+      issue_id: issueId,
+      author_name: authorName,
+      body: newComment
     };
     
-    setComments([...comments, comment]);
-    setNewComment('');
+    commentMutation.mutate(comment);
   };
 
   return (
@@ -67,45 +57,69 @@ const CommentSection: React.FC<CommentSectionProps> = ({ issueId }) => {
         Comments ({comments.length})
       </h4>
       
-      <div className="space-y-4 mb-4">
-        {comments.map(comment => {
-          const avatarSeed = comment.author.name.replace(/\s/g, '').toLowerCase();
-          const initials = comment.author.name
-            .split(' ')
-            .map(part => part.charAt(0))
-            .join('')
-            .toUpperCase();
-            
-          return (
-            <div key={comment.id} className="flex gap-3">
-              <Avatar className="h-8 w-8">
-                <AvatarImage 
-                  src={comment.author.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`}
-                  alt={comment.author.name} 
-                />
-                <AvatarFallback>{initials}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1">
-                <div className="flex justify-between items-baseline">
-                  <p className="text-sm font-medium">{comment.author.name}</p>
-                  <span className="text-xs text-secondary-light">{comment.timestamp}</span>
+      {isLoading ? (
+        <div className="text-center py-2">Loading comments...</div>
+      ) : (
+        <div className="space-y-4 mb-4">
+          {comments.map(comment => {
+            const avatarSeed = comment.author_name.replace(/\s/g, '').toLowerCase();
+            const initials = comment.author_name
+              .split(' ')
+              .map(part => part.charAt(0))
+              .join('')
+              .toUpperCase();
+              
+            return (
+              <div key={comment.id} className="flex gap-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage 
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`}
+                    alt={comment.author_name} 
+                  />
+                  <AvatarFallback>{initials}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <div className="flex justify-between items-baseline">
+                    <p className="text-sm font-medium">{comment.author_name}</p>
+                    <span className="text-xs text-secondary-light">
+                      {new Date(comment.created_at).toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
+                    </span>
+                  </div>
+                  <p className="text-sm mt-1">{comment.body}</p>
                 </div>
-                <p className="text-sm mt-1">{comment.content}</p>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
       
-      <form onSubmit={handleSubmitComment} className="flex gap-2">
-        <Input
-          placeholder="Add a comment..."
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          className="flex-1"
-        />
-        <Button type="submit" size="sm" disabled={!newComment.trim()}>
-          Post
+      <form onSubmit={handleSubmitComment} className="space-y-3">
+        <div>
+          <Input
+            placeholder="Your name"
+            value={authorName}
+            onChange={(e) => setAuthorName(e.target.value)}
+            className="mb-2"
+          />
+          <Input
+            placeholder="Add a comment..."
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+          />
+        </div>
+        <Button 
+          type="submit" 
+          size="sm" 
+          disabled={!newComment.trim() || !authorName.trim() || commentMutation.isPending}
+        >
+          {commentMutation.isPending ? 'Posting...' : 'Post'}
         </Button>
       </form>
     </div>
