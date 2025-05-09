@@ -66,7 +66,7 @@ const StatusSelector: React.FC<StatusSelectorProps> = ({
             onClick={() => handleStatusSelect(option.id)}
           >
             <div className="flex items-center gap-2">
-              <Badge className={option.className} size="sm">
+              <Badge className={option.className}>
                 {option.icon}
                 <span className="ml-1">{option.label}</span>
               </Badge>

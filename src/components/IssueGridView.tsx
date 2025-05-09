@@ -91,10 +91,11 @@ const IssueGridView = ({ issues, onStatusChange }: IssueGridViewProps) => {
         const displayTags = showAllTags ? issue.tags : issue.tags.slice(0, 3);
 
         return (
-          <div 
+          <Collapsible 
             key={issue.id} 
-            className="bg-white rounded-lg shadow-sm p-4 flex flex-col hover:shadow-md transition-all duration-300 cursor-pointer"
-            onClick={() => toggleExpand(issue.id)}
+            open={isExpanded}
+            onOpenChange={() => toggleExpand(issue.id)}
+            className="bg-white rounded-lg shadow-sm p-4 flex flex-col hover:shadow-md transition-all duration-300"
           >
             <div className="flex justify-between items-start mb-2">
               <h3 className="font-medium text-sm">{issue.title}</h3>
@@ -107,52 +108,50 @@ const IssueGridView = ({ issues, onStatusChange }: IssueGridViewProps) => {
               />
             </div>
             
-            <Collapsible open={isExpanded}>
-              <div className="mb-2">
-                <div className="text-sm text-secondary-light line-clamp-2">
-                  {!isExpanded && issue.description.length > 100 ? 
-                    `${issue.description.substring(0, 100)}...` : 
-                    isExpanded ? null : issue.description}
-                </div>
+            <div className="mb-2">
+              <div className="text-sm text-secondary-light line-clamp-2">
+                {!isExpanded && issue.description.length > 100 ? 
+                  `${issue.description.substring(0, 100)}...` : 
+                  isExpanded ? null : issue.description}
               </div>
+            </div>
 
-              <div className="flex flex-wrap gap-1 mb-3">
-                {displayTags.map((tag, i) => (
-                  <Badge key={i} variant="outline" className="bg-primary-light/10 text-primary-dark border-primary-light/20 text-xs">
-                    {tag}
-                  </Badge>
-                ))}
-                {issue.tags.length > 3 && !showAllTags && (
-                  <Badge
-                    variant="outline"
-                    className="bg-gray-100 text-xs cursor-pointer hover:bg-gray-200"
-                    onClick={(e) => toggleTags(issue.id, e)}
-                  >
-                    +{issue.tags.length - 3} more
-                  </Badge>
-                )}
+            <div className="flex flex-wrap gap-1 mb-3">
+              {displayTags.map((tag, i) => (
+                <Badge key={i} variant="outline" className="bg-primary-light/10 text-primary-dark border-primary-light/20 text-xs">
+                  {tag}
+                </Badge>
+              ))}
+              {issue.tags.length > 3 && !showAllTags && (
+                <Badge
+                  variant="outline"
+                  className="bg-gray-100 text-xs cursor-pointer hover:bg-gray-200"
+                  onClick={(e) => toggleTags(issue.id, e)}
+                >
+                  +{issue.tags.length - 3} more
+                </Badge>
+              )}
+            </div>
+            
+            <CollapsibleContent>
+              <div className="border-t border-gray-100 pt-3 mb-3">
+                <p className="text-sm whitespace-pre-line">{issue.description}</p>
               </div>
               
-              <CollapsibleContent>
-                <div className="border-t border-gray-100 pt-3 mb-3">
-                  <p className="text-sm whitespace-pre-line">{issue.description}</p>
+              <CommentSection issueId={issue.id} />
+            </CollapsibleContent>
+            
+            {!isExpanded && (
+              <div className="flex items-center justify-between pt-2 mt-auto border-t border-gray-100">
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-5 w-5">
+                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`} alt={issue.reporter.name} />
+                    <AvatarFallback>{initials}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-xs">{issue.reporter.name}</span>
                 </div>
-                
-                <CommentSection issueId={issue.id} />
-              </CollapsibleContent>
-              
-              {!isExpanded && (
-                <div className="flex items-center justify-between pt-2 mt-auto border-t border-gray-100">
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`} alt={issue.reporter.name} />
-                      <AvatarFallback>{initials}</AvatarFallback>
-                    </Avatar>
-                    <span className="text-xs">{issue.reporter.name}</span>
-                  </div>
-                </div>
-              )}
-            </Collapsible>
+              </div>
+            )}
             
             <CollapsibleTrigger asChild>
               <Button 
@@ -173,7 +172,7 @@ const IssueGridView = ({ issues, onStatusChange }: IssueGridViewProps) => {
                 )}
               </Button>
             </CollapsibleTrigger>
-          </div>
+          </Collapsible>
         );
       })}
     </div>
