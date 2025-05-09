@@ -5,7 +5,13 @@ import IssueGridView from './IssueGridView';
 import ViewToggle from './ViewToggle';
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { Search, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import NewIssueDialog from './NewIssueDialog';
+
+type IssueStatus = 'pending' | 'solved' | 'critical' | 'in-progress' | 'blocked';
 
 interface Issue {
   id: string;
@@ -17,7 +23,7 @@ interface Issue {
     avatar?: string;
   };
   dateReported: string;
-  status: 'pending' | 'solved' | 'critical';
+  status: IssueStatus;
   tags: string[];
 }
 
@@ -61,7 +67,7 @@ const issuesData: Issue[] = [
       avatar: 'bob'
     },
     dateReported: 'N/A',
-    status: 'pending',
+    status: 'in-progress',
     tags: ['#login-issue', '#email-mismatch', '#10xdev', '#me.com']
   },
   {
@@ -74,7 +80,7 @@ const issuesData: Issue[] = [
       avatar: 'roma'
     },
     dateReported: 'N/A',
-    status: 'pending',
+    status: 'blocked',
     tags: ['#login-issue', '#cursor', '#email-update', '#icloud', '#gmail']
   },
   {
@@ -87,7 +93,7 @@ const issuesData: Issue[] = [
       avatar: 'ming'
     },
     dateReported: 'N/A',
-    status: 'pending',
+    status: 'solved',
     tags: ['#login-issue', '#email-block', '#outlook', '#10xcoder']
   }
 ];
@@ -119,8 +125,14 @@ const getIssueSegment = (issue: Issue): string => {
 
 // Sort function for issues
 const sortIssues = (a: Issue, b: Issue): number => {
-  // First by status: pending → critical → solved
-  const statusOrder = { pending: 0, critical: 1, solved: 2 };
+  // First by status priority
+  const statusOrder: Record<IssueStatus, number> = { 
+    'pending': 0, 
+    'in-progress': 1, 
+    'blocked': 2, 
+    'critical': 3, 
+    'solved': 4 
+  };
   if (statusOrder[a.status] !== statusOrder[b.status]) {
     return statusOrder[a.status] - statusOrder[b.status];
   }
@@ -138,12 +150,20 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'card' | 'grid'>('card');
+  const [issues, setIssues] = useState<Issue[]>(issuesData);
+  const [showResolved, setShowResolved] = useState(false);
+  const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
 
   // Load saved preferences from localStorage
   useEffect(() => {
     const savedViewMode = localStorage.getItem('issueViewMode');
     if (savedViewMode && (savedViewMode === 'card' || savedViewMode === 'grid')) {
       setViewMode(savedViewMode);
+    }
+    
+    const savedShowResolved = localStorage.getItem('showResolved');
+    if (savedShowResolved) {
+      setShowResolved(savedShowResolved === 'true');
     }
   }, []);
 
@@ -153,10 +173,47 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
     localStorage.setItem('issueViewMode', mode);
   };
 
-  const filteredIssues = issuesData
+  const handleShowResolvedChange = (value: boolean) => {
+    setShowResolved(value);
+    localStorage.setItem('showResolved', value.toString());
+  };
+
+  const handleStatusChange = (id: string, newStatus: IssueStatus) => {
+    setIssues(currentIssues => 
+      currentIssues.map(issue => 
+        issue.id === id ? { ...issue, status: newStatus } : issue
+      )
+    );
+  };
+
+  const handleAddNewIssue = (newIssue: Omit<Issue, 'id' | 'dateReported' | 'status'>) => {
+    const issueToAdd: Issue = {
+      ...newIssue,
+      id: Date.now().toString(),
+      dateReported: new Date().toLocaleString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }),
+      status: 'pending'
+    };
+    
+    setIssues(current => [...current, issueToAdd]);
+    setIsNewIssueOpen(false);
+  };
+
+  const filteredIssues = issues
     .filter(issue => {
       // Apply segment filter
       if (activeSegment && getIssueSegment(issue) !== activeSegment) {
+        return false;
+      }
+      
+      // Filter by resolved status
+      if (!showResolved && issue.status === 'solved') {
         return false;
       }
       
@@ -195,12 +252,30 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
             <SelectContent>
               <SelectItem value="all">All Issues</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="solved">Solved</SelectItem>
+              <SelectItem value="in-progress">In Progress</SelectItem>
+              <SelectItem value="blocked">Blocked</SelectItem>
               <SelectItem value="critical">Critical</SelectItem>
+              <SelectItem value="solved">Resolved</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <ViewToggle viewMode={viewMode} onChange={handleViewModeChange} />
+        <Button 
+          onClick={() => setIsNewIssueOpen(true)}
+          className="ml-auto sm:ml-0"
+          size="sm"
+        >
+          <Plus className="h-4 w-4 mr-1" /> New Issue
+        </Button>
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        <Switch 
+          id="showResolved" 
+          checked={showResolved} 
+          onCheckedChange={handleShowResolvedChange}
+        />
+        <Label htmlFor="showResolved">Show Resolved Issues</Label>
       </div>
 
       {filteredIssues.length === 0 ? (
@@ -210,10 +285,11 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
       ) : (
         <div className="animate-fade-in">
           {viewMode === 'card' ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
               {filteredIssues.map((issue, index) => (
                 <IssueCard
                   key={issue.id}
+                  id={issue.id}
                   title={issue.title}
                   description={issue.description}
                   reporter={issue.reporter}
@@ -221,14 +297,24 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
                   status={issue.status}
                   tags={issue.tags}
                   index={index}
+                  onStatusChange={handleStatusChange}
                 />
               ))}
             </div>
           ) : (
-            <IssueGridView issues={filteredIssues} />
+            <IssueGridView 
+              issues={filteredIssues} 
+              onStatusChange={handleStatusChange}
+            />
           )}
         </div>
       )}
+      
+      <NewIssueDialog 
+        open={isNewIssueOpen} 
+        onOpenChange={setIsNewIssueOpen}
+        onSubmit={handleAddNewIssue}
+      />
     </div>
   );
 };
