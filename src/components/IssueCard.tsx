@@ -3,6 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Clock, CheckSquare, XSquare } from "lucide-react";
 
 type IssueStatus = 'pending' | 'solved' | 'critical';
 
@@ -24,6 +25,12 @@ const statusClassMap: Record<IssueStatus, string> = {
   pending: 'bg-status-pending text-white',
   solved: 'bg-status-solved text-white',
   critical: 'bg-status-critical text-white',
+};
+
+const statusIconMap: Record<IssueStatus, React.ReactNode> = {
+  pending: <Clock className="h-4 w-4" />,
+  solved: <CheckSquare className="h-4 w-4" />,
+  critical: <XSquare className="h-4 w-4" />
 };
 
 const statusTextMap: Record<IssueStatus, string> = {
@@ -51,12 +58,15 @@ const IssueCard: React.FC<IssueCardProps> = ({
   const avatarSeed = reporter.name.replace(/\s/g, '').toLowerCase();
   
   return (
-    <Card className={`bg-white shadow-sm rounded-lg overflow-hidden h-full animate-fade-in`} 
-      style={{ animationDelay: `${index * 0.1}s` }}>
+    <Card 
+      className="bg-white shadow-sm rounded-lg overflow-hidden h-full animate-fade-in hover:shadow-md transition-all duration-300" 
+      style={{ animationDelay: `${index * 0.1}s` }}
+    >
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
           <CardTitle className="text-lg font-medium">{title}</CardTitle>
-          <Badge className={`${statusClassMap[status]}`}>
+          <Badge className={`${statusClassMap[status]} flex items-center gap-1`}>
+            {statusIconMap[status]}
             {statusTextMap[status]}
           </Badge>
         </div>

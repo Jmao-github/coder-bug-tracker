@@ -1,6 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import IssueCard from './IssueCard';
+import IssueGridView from './IssueGridView';
+import ViewToggle from './ViewToggle';
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search } from "lucide-react";
@@ -17,6 +19,10 @@ interface Issue {
   dateReported: string;
   status: 'pending' | 'solved' | 'critical';
   tags: string[];
+}
+
+interface IssueListProps {
+  activeSegment: string | null;
 }
 
 const issuesData: Issue[] = [
@@ -86,25 +92,92 @@ const issuesData: Issue[] = [
   }
 ];
 
-const IssueList: React.FC = () => {
+// Helper function to determine which segment an issue belongs to
+const getIssueSegment = (issue: Issue): string => {
+  const tags = issue.tags.map(tag => tag.toLowerCase().replace('#', ''));
+  
+  // Check for Auth & Login segment
+  if (tags.some(tag => 
+    tag.includes('login-issue') || 
+    tag.includes('email') || 
+    tag.includes('auth')
+  )) {
+    return 'auth';
+  }
+  
+  // Check for Code Generation segment
+  if (tags.some(tag => 
+    tag.includes('code-generation') || 
+    tag.includes('session')
+  )) {
+    return 'code';
+  }
+  
+  // Default to Miscellaneous
+  return 'misc';
+};
+
+// Sort function for issues
+const sortIssues = (a: Issue, b: Issue): number => {
+  // First by status: pending → critical → solved
+  const statusOrder = { pending: 0, critical: 1, solved: 2 };
+  if (statusOrder[a.status] !== statusOrder[b.status]) {
+    return statusOrder[a.status] - statusOrder[b.status];
+  }
+  
+  // Then by date (newest first) - simplified comparison
+  if (a.dateReported === 'N/A' && b.dateReported !== 'N/A') return 1;
+  if (a.dateReported !== 'N/A' && b.dateReported === 'N/A') return -1;
+  if (a.dateReported > b.dateReported) return -1;
+  if (a.dateReported < b.dateReported) return 1;
+  
+  return 0;
+};
+
+const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<'card' | 'grid'>('card');
 
-  const filteredIssues = issuesData.filter(issue => {
-    const matchesSearch = 
-      issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      issue.reporter.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      issue.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = statusFilter === 'all' || issue.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  // Load saved preferences from localStorage
+  useEffect(() => {
+    const savedViewMode = localStorage.getItem('issueViewMode');
+    if (savedViewMode && (savedViewMode === 'card' || savedViewMode === 'grid')) {
+      setViewMode(savedViewMode);
+    }
+  }, []);
+
+  // Save preferences to localStorage
+  const handleViewModeChange = (mode: 'card' | 'grid') => {
+    setViewMode(mode);
+    localStorage.setItem('issueViewMode', mode);
+  };
+
+  const filteredIssues = issuesData
+    .filter(issue => {
+      // Apply segment filter
+      if (activeSegment && getIssueSegment(issue) !== activeSegment) {
+        return false;
+      }
+      
+      // Apply search filter
+      const matchesSearch = 
+        issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        issue.reporter.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        issue.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Apply status filter
+      const matchesStatus = statusFilter === 'all' || issue.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    })
+    // Sort the issues
+    .sort(sortIssues);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 items-end">
         <div className="relative flex-1">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-secondary-light" />
           <Input
@@ -127,6 +200,7 @@ const IssueList: React.FC = () => {
             </SelectContent>
           </Select>
         </div>
+        <ViewToggle viewMode={viewMode} onChange={handleViewModeChange} />
       </div>
 
       {filteredIssues.length === 0 ? (
@@ -134,19 +208,25 @@ const IssueList: React.FC = () => {
           <p className="text-secondary-light">No issues found matching your criteria</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredIssues.map((issue, index) => (
-            <IssueCard
-              key={issue.id}
-              title={issue.title}
-              description={issue.description}
-              reporter={issue.reporter}
-              dateReported={issue.dateReported}
-              status={issue.status}
-              tags={issue.tags}
-              index={index}
-            />
-          ))}
+        <div className="animate-fade-in">
+          {viewMode === 'card' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {filteredIssues.map((issue, index) => (
+                <IssueCard
+                  key={issue.id}
+                  title={issue.title}
+                  description={issue.description}
+                  reporter={issue.reporter}
+                  dateReported={issue.dateReported}
+                  status={issue.status}
+                  tags={issue.tags}
+                  index={index}
+                />
+              ))}
+            </div>
+          ) : (
+            <IssueGridView issues={filteredIssues} />
+          )}
         </div>
       )}
     </div>
