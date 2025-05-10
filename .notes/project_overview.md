@@ -16,7 +16,7 @@ This is a bug tracking system built with React, TypeScript, and Vite. It integra
 |---------|-------------|----------|------------------|
 | Issue Listing | View and filter all reported issues | High | Yes |
 | Issue Creation | Submit new issues with details, tags, and priority | High | Yes |
-| Status Management | Update and track issue status (pending, in-progress, blocked, solved) | High | Yes |
+| Status Management | Update and track issue status (waiting_for_help, in_progress, blocked, resolved, archived) | High | Yes |
 | Issue Categorization | Segment issues by area (auth, code, other) | Medium | Yes |
 | Issue Statistics | Visual representation of issue categories and counts | Medium | Maybe |
 | Comments & Discussion | Add comments to issues for collaboration | Medium | Maybe |
@@ -30,7 +30,7 @@ This is a bug tracking system built with React, TypeScript, and Vite. It integra
 2. User clicks "New Issue" button
 3. User completes the issue form with title, description, name, and tags
 4. User submits the form
-5. System creates the issue with "pending" status
+5. System creates the issue with "in_progress" status
 6. User is returned to the updated issues list
 
 ### Managing Issue Status
@@ -64,6 +64,9 @@ This is a bug tracking system built with React, TypeScript, and Vite. It integra
 - [x] Status changes persist to the database
 - [x] Status updates reflect immediately in the UI
 - [x] Different statuses have distinct visual indicators
+- [x] Status values are constrained to valid options (waiting_for_help, in_progress, blocked, resolved, archived)
+- [x] Resolved status correctly tracks who resolved the issue and when
+- [x] Status counts display accurately on dashboard metrics
 
 ### Issue Categorization
 - [x] Issues can be filtered by segment/category

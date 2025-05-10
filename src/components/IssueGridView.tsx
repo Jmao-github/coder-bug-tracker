@@ -7,7 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import StatusSelector from "./StatusSelector";
 import CommentSection from "./CommentSection";
 
-type IssueStatus = 'waiting_for_help' | 'pending' | 'resolved' | 'blocked' | 'archived';
+type IssueStatus = 'waiting_for_help' | 'in_progress' | 'resolved' | 'blocked' | 'archived';
 
 interface Issue {
   id: string;
@@ -30,7 +30,7 @@ interface IssueGridViewProps {
 }
 
 const statusIconMap: Record<string, React.ReactNode> = {
-  pending: <Clock className="h-4 w-4 text-yellow-500" />,
+  in_progress: <Clock className="h-4 w-4 text-yellow-500" />,
   resolved: <CheckSquare className="h-4 w-4 text-green-500" />,
   waiting_for_help: <Clock className="h-4 w-4 text-blue-500" />,
   blocked: <XSquare className="h-4 w-4 text-red-500" />,
@@ -38,7 +38,7 @@ const statusIconMap: Record<string, React.ReactNode> = {
 };
 
 const statusTextMap: Record<string, string> = {
-  pending: 'Pending',
+  in_progress: 'In Progress',
   resolved: 'Resolved',
   waiting_for_help: 'Waiting for Help',
   blocked: 'Blocked',
@@ -46,7 +46,7 @@ const statusTextMap: Record<string, string> = {
 };
 
 const statusClassMap: Record<string, string> = {
-  pending: 'bg-yellow-500 text-white',
+  in_progress: 'bg-yellow-500 text-white',
   resolved: 'bg-green-500 text-white',
   waiting_for_help: 'bg-blue-500 text-white',
   blocked: 'bg-red-500 text-white',

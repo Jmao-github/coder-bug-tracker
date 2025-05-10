@@ -132,7 +132,7 @@ const NewIssueDialog: React.FC<NewIssueDialogProps> = ({
         submitted_by: activeProfile.name,
         assigned_to: null,
         tags: categoryTags,
-        status: 'pending',
+        status: 'in_progress',
         segment: segment as 'auth' | 'code' | 'misc'
       };
 
@@ -162,6 +162,8 @@ const NewIssueDialog: React.FC<NewIssueDialogProps> = ({
           }
           // Invalidate the direct counts query
           queryClient.invalidateQueries({ queryKey: ['issue-counts'] });
+          // Invalidate the status counts query
+          queryClient.invalidateQueries({ queryKey: ['status-counts'] });
           
           console.log('Successfully invalidated all relevant issue queries');
           reset();

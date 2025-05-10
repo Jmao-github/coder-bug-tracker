@@ -78,16 +78,11 @@ const SegmentNavigation: React.FC<SegmentNavigationProps> = ({
       // Initialize the breakdown structure
       CATEGORIES.forEach(cat => {
         breakdown[cat.id] = {
-          'pending': 0,
-          'in-progress': 0,
+          'in_progress': 0,
+          'waiting_for_help': 0,
           'blocked': 0,
-          'solved': 0,
-          'critical': 0,
-          'WaitForHelp': 0,
-          'InProgress': 0,
-          'Resolved': 0,
-          'Archived': 0,
-          'Failed': 0
+          'resolved': 0,
+          'archived': 0
         };
       });
       

@@ -5,13 +5,13 @@ import IssueList from "@/components/IssueList";
 import SegmentNavigation from "@/components/SegmentNavigation";
 import ScrollIndicator from "@/components/ScrollIndicator";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { fetchIssues, fetchIssueCountsBySegment } from '@/services/issueService';
+import { fetchIssues, fetchIssueCountsBySegment, fetchIssueCountsByStatus } from '@/services/issueService';
 import { Issue } from '@/types/issueTypes';
 import { toast } from 'sonner';
 import StatusTiles from '@/components/StatusTiles';
 
 // Define the status types
-type IssueStatus = 'waiting_for_help' | 'pending' | 'resolved' | 'blocked' | 'archived';
+type IssueStatus = 'waiting_for_help' | 'in_progress' | 'resolved' | 'blocked' | 'archived';
 
 const Issues: React.FC = () => {
   const { segment } = useParams<{ segment: string }>();
@@ -25,7 +25,7 @@ const Issues: React.FC = () => {
     misc: 0
   });
   const [statusCounts, setStatusCounts] = useState<Record<IssueStatus, number>>({
-    pending: 0,
+    in_progress: 0,
     waiting_for_help: 0,
     blocked: 0,
     resolved: 0,
@@ -56,7 +56,7 @@ const Issues: React.FC = () => {
     refetchOnReconnect: true,  // Refetch when reconnecting
   });
 
-  // Direct count query - Always fetch as a parallel source of truth
+  // Direct segment count query - Always fetch as a parallel source of truth
   const { data: directCounts, isSuccess: directCountSuccess } = useQuery({
     queryKey: ['issue-counts'],
     queryFn: async () => {
@@ -71,6 +71,31 @@ const Issues: React.FC = () => {
       } catch (error) {
         console.error('Error fetching direct counts:', error);
         return { auth: 0, code: 0, tool: 0, misc: 0 };
+      }
+    },
+    staleTime: 1000 * 60, // 1 minute
+    retry: 2,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+  });
+
+  // Direct status count query - Always fetch as a parallel source of truth
+  const { data: directStatusCounts, isSuccess: directStatusCountSuccess } = useQuery({
+    queryKey: ['status-counts'],
+    queryFn: async () => {
+      try {
+        const counts = await fetchIssueCountsByStatus();
+        return counts;
+      } catch (error) {
+        console.error('Error fetching direct status counts:', error);
+        return {
+          in_progress: 0,
+          waiting_for_help: 0,
+          blocked: 0,
+          resolved: 0,
+          archived: 0
+        };
       }
     },
     staleTime: 1000 * 60, // 1 minute
@@ -95,12 +120,25 @@ const Issues: React.FC = () => {
     }
   }, [directCountSuccess, directCounts, totalIssueCount]);
 
-  // Calculate status counts
+  // Handle direct status count success
   useEffect(() => {
-    if (!allIssues || allIssues.length === 0) return;
+    if (directStatusCountSuccess && directStatusCounts) {
+      console.log('Direct status count query successful, updating status counts:', directStatusCounts);
+      setStatusCounts(directStatusCounts);
+    }
+  }, [directStatusCountSuccess, directStatusCounts]);
+
+  // Calculate status counts from allIssues as fallback
+  useEffect(() => {
+    if (!allIssues || allIssues.length === 0) {
+      console.log('No issues available for status counting');
+      return;
+    }
+    
+    console.log(`Calculating status counts from ${allIssues.length} issues`);
     
     const counts: Record<IssueStatus, number> = {
-      pending: 0,
+      in_progress: 0,
       waiting_for_help: 0,
       blocked: 0,
       resolved: 0,
@@ -113,16 +151,24 @@ const Issues: React.FC = () => {
         
         // Count by status
         const status = issue.status as IssueStatus;
+        console.log(`Issue ${issue.id} has status: ${status}`);
         if (status in counts) {
           counts[status]++;
+        } else {
+          console.warn(`Unrecognized status value: ${status} for issue ${issue.id}`);
         }
       });
       
-      setStatusCounts(counts);
+      console.log('Final status counts from client-side calculation:', counts);
+      
+      // Only update if we don't have direct counts yet or all counts are 0
+      if (!directStatusCounts || Object.values(statusCounts).every(count => count === 0)) {
+        setStatusCounts(counts);
+      }
     } catch (error) {
       console.error('Error calculating status counts:', error);
     }
-  }, [allIssues]);
+  }, [allIssues, directStatusCounts, statusCounts]);
 
   // Calculate GLOBAL segment counts (not filtered by active segment)
   const updateGlobalSegmentCounts = () => {

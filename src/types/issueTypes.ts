@@ -5,7 +5,7 @@ export type Issue = {
   description: string;
   tags: string[];
   segment: 'auth' | 'code' | 'tool' | 'misc';
-  status: 'waiting_for_help' | 'pending' | 'resolved' | 'blocked' | 'archived';
+  status: 'waiting_for_help' | 'in_progress' | 'resolved' | 'blocked' | 'archived';
   submitted_by: string;
   assigned_to: string | null;
   ready_for_delivery: boolean;

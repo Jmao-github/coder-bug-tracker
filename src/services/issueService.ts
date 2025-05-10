@@ -3,7 +3,7 @@ import { Issue, NewIssue, Comment, NewComment } from "@/types/issueTypes";
 import { toast } from "sonner";
 
 // Define the restricted status type
-type IssueStatus = 'waiting_for_help' | 'pending' | 'resolved' | 'blocked' | 'archived';
+type IssueStatus = 'waiting_for_help' | 'in_progress' | 'resolved' | 'blocked' | 'archived';
 
 // Issues
 export const fetchIssues = async () => {
@@ -110,25 +110,42 @@ export const updateIssueStatus = async (
   status: IssueStatus, 
   resolvedBy?: string
 ) => {
-  const updateData: any = { status };
-  
-  // If the issue is being resolved, record who resolved it and when
-  if (status === 'resolved' && resolvedBy) {
-    updateData.resolved_by = resolvedBy;
-    updateData.resolved_at = new Date().toISOString();
+  try {
+    const updateData: any = { 
+      status,
+      updated_at: new Date().toISOString()
+    };
+    
+    // If the issue is being resolved, record who resolved it and when
+    if (status === 'resolved' && resolvedBy) {
+      updateData.resolved_by = resolvedBy;
+      updateData.resolved_at = new Date().toISOString();
+    } else if (status !== 'resolved') {
+      // Clear resolved information if changing to a non-resolved status
+      updateData.resolved_by = null;
+      updateData.resolved_at = null;
+    }
+    
+    console.log('Updating issue status with data:', updateData);
+    
+    const { error } = await supabase
+      .from('issues')
+      .update(updateData)
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating issue status:', error);
+      toast.error(`Failed to update status: ${error.message}`);
+      throw new Error(`Failed to update issue status: ${error.message}`);
+    }
+    
+    toast.success(`Issue status updated to ${status}`);
+    return true;
+  } catch (error) {
+    console.error('Error in updateIssueStatus:', error);
+    toast.error('Failed to update issue status');
+    throw error;
   }
-  
-  const { error } = await supabase
-    .from('issues')
-    .update(updateData)
-    .eq('id', id);
-  
-  if (error) {
-    console.error('Error updating issue status:', error);
-    throw new Error(`Failed to update issue status: ${error.message}`);
-  }
-  
-  return true;
 };
 
 export const updateReadyForDelivery = async (id: string, ready: boolean) => {
@@ -228,5 +245,75 @@ export const fetchIssueCountsBySegment = async () => {
   } catch (error) {
     console.error('Error in fetchIssueCountsBySegment:', error);
     return { auth: 0, code: 0, tool: 0, misc: 0 };
+  }
+};
+
+// Fetch counts directly by status for reliable metrics
+export const fetchIssueCountsByStatus = async () => {
+  console.log('Fetching direct issue counts by status');
+  
+  try {
+    // Get counts for each status directly from Supabase
+    const inProgressCountQuery = await supabase
+      .from('issues')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'in_progress');
+    
+    const waitingForHelpCountQuery = await supabase
+      .from('issues')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'waiting_for_help');
+    
+    const blockedCountQuery = await supabase
+      .from('issues')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'blocked');
+    
+    const resolvedCountQuery = await supabase
+      .from('issues')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'resolved');
+    
+    const archivedCountQuery = await supabase
+      .from('issues')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'archived');
+    
+    // Check for errors in any of the queries
+    const errors = [
+      inProgressCountQuery.error,
+      waitingForHelpCountQuery.error,
+      blockedCountQuery.error,
+      resolvedCountQuery.error,
+      archivedCountQuery.error
+    ].filter(Boolean);
+    
+    if (errors.length > 0) {
+      console.error('Error fetching status counts:', errors[0]);
+      throw new Error('Failed to fetch status counts');
+    }
+    
+    // Extract the counts
+    const counts = {
+      in_progress: inProgressCountQuery.count || 0,
+      waiting_for_help: waitingForHelpCountQuery.count || 0,
+      blocked: blockedCountQuery.count || 0,
+      resolved: resolvedCountQuery.count || 0,
+      archived: archivedCountQuery.count || 0
+    };
+    
+    const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
+    console.log(`Direct status count query successful. Total: ${total}, by status:`, counts);
+    
+    return counts;
+  } catch (error) {
+    console.error('Error in fetchIssueCountsByStatus:', error);
+    return {
+      in_progress: 0,
+      waiting_for_help: 0,
+      blocked: 0,
+      resolved: 0,
+      archived: 0
+    };
   }
 };

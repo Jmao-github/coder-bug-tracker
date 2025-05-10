@@ -17,11 +17,11 @@ import { useProfile } from './ProfileContext';
 import { toast } from 'sonner';
 
 // Define the status types
-type IssueStatus = 'waiting_for_help' | 'pending' | 'resolved' | 'blocked' | 'archived';
+type IssueStatus = 'waiting_for_help' | 'in_progress' | 'resolved' | 'blocked' | 'archived';
 
 // Type guard to check if a string is a valid IssueStatus
 function isIssueStatus(status: string): status is IssueStatus {
-  return ['waiting_for_help', 'pending', 'resolved', 'blocked', 'archived'].includes(status);
+  return ['waiting_for_help', 'in_progress', 'resolved', 'blocked', 'archived'].includes(status);
 }
 
 interface IssueListProps {
@@ -81,10 +81,11 @@ const IssueList: React.FC<IssueListProps> = ({
 
   // Status update mutation
   const statusMutation = useMutation({
-    mutationFn: ({ id, newStatus, profileName }: { id: string; newStatus: string; profileName: string }) => 
+    mutationFn: ({ id, newStatus, profileName }: { id: string; newStatus: IssueStatus; profileName: string }) => 
       updateIssueStatus(id, newStatus, profileName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
+      queryClient.invalidateQueries({ queryKey: ['status-counts'] });
     },
   });
 
@@ -101,7 +102,7 @@ const IssueList: React.FC<IssueListProps> = ({
 
   // Update the toggleResolved function
   const toggleResolved = () => {
-    const newFilter = showResolved ? 'pending' : 'resolved';
+    const newFilter = showResolved ? 'in_progress' : 'resolved';
     setStatusFilter(newFilter);
   };
 
@@ -149,7 +150,7 @@ const IssueList: React.FC<IssueListProps> = ({
     // Pass the active profile name to the mutation
     statusMutation.mutate({ 
       id, 
-      newStatus: newStatus, 
+      newStatus, 
       profileName: activeProfile?.name || 'System' 
     });
   };
@@ -208,7 +209,7 @@ const IssueList: React.FC<IssueListProps> = ({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Issues</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="waiting_for_help">Waiting for Help</SelectItem>
                   <SelectItem value="blocked">Blocked</SelectItem>
                   <SelectItem value="resolved">Resolved</SelectItem>

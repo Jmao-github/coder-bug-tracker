@@ -52,6 +52,22 @@
   - Client-side category arrays: Rejected for potential synchronization issues with database
   - Additional database fields for explicit category: Rejected for schema simplicity
 
+### 2025-05-09T23:04:23.770-04:00 | Status Field Standardization
+- **Decision**: Updated issue status field from 'pending' to 'in_progress' across the entire application
+- **Rationale**: Creates consistent terminology and fixes UI display issues with "Unknown" status
+- **Alternatives Considered**:
+  - Keeping 'pending' and adding UI mapping: Rejected for clean data architecture
+  - Creating status aliases: Rejected for unnecessary complexity
+  - Client-side translation layer: Rejected as less reliable than database constraints
+
+### 2025-05-09T23:04:23.770-04:00 | Status Cards Display Fix
+- **Decision**: Implemented direct database count queries for status metrics to fix zero-value display issue
+- **Rationale**: Ensures reliable status counts even after page refresh, applying the same pattern that fixed segment metrics
+- **Alternatives Considered**:
+  - Enhanced client-side counting: Rejected for same reasons as previous metrics issues
+  - Using localStorage cache: Rejected for potential data staleness
+  - WebSocket live updates: Rejected as unnecessarily complex for current needs
+
 ## Version History
 
 ### 2025-05-09T18:50:59.938-04:00 | Initial Project Setup
@@ -75,17 +91,10 @@
 - Updated `IssueStats` component to handle empty data gracefully
 - Added improved error handling and fallbacks for metrics calculation
 
-### 2025-05-09T20:58:30.671-04:00 | Auth Category Bug Fix
-- Identified and fixed issue with Auth & Login issues not appearing in correct list
-- Added comprehensive debug logging for segment/category handling
-- Ensured consistent segment naming between issue creation and filtering
-- Enhanced React Query invalidation to ensure related queries refresh properly
-- Fixed query caching issue causing stale data in category filtering
-
-### 2025-05-09T21:04:15.319-04:00 | Category System Standardization
-- Created standardized SEGMENT_MAPPING object for consistent database storage
-- Fixed issue where Auth & Login, 10x Coder, and Other categories weren't displaying issues
-- Updated issue filtering logic to properly handle all category types
-- Added additional safety checks for tags array in filtering logic
-- Implemented enhanced logging to track segment/category relationships
-- Preserved working CodeGeneration category behavior while fixing other categories 
+### 2025-05-09T23:04:23.770-04:00 | Status System Overhaul
+- Fixed "resolved" status update error by adding required database columns
+- Updated status terminology from 'pending' to 'in_progress' across all components
+- Fixed status cards showing zero counts by implementing direct database queries
+- Added database constraint to enforce valid status values
+- Created parallel data fetching strategy for status metrics reliability
+- Updated all relevant components for consistent status display and behavior

@@ -4,7 +4,7 @@ import { Clock, CheckSquare, XSquare, Archive, HelpCircle } from "lucide-react";
 import { motion } from "framer-motion";
 
 // Define the status types
-type IssueStatus = 'waiting_for_help' | 'pending' | 'resolved' | 'blocked' | 'archived';
+type IssueStatus = 'waiting_for_help' | 'in_progress' | 'resolved' | 'blocked' | 'archived';
 
 interface StatusTilesProps {
   statusCounts: Record<IssueStatus, number>;
@@ -22,8 +22,8 @@ interface StatusConfig {
 
 // Status configuration with colors and icons
 const STATUS_CONFIG: Record<IssueStatus, StatusConfig> = {
-  'pending': { 
-    label: 'Pending', 
+  'in_progress': { 
+    label: 'In Progress', 
     icon: <Clock className="h-4 w-4" />, 
     color: 'text-yellow-500', 
     bgColor: 'bg-yellow-50',
