@@ -1,21 +1,21 @@
-
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { MessageSquare } from "lucide-react";
 import { fetchComments, addComment } from '@/services/issueService';
 import { NewComment } from '@/types/issueTypes';
 import { toast } from 'sonner';
+import { useProfile } from './ProfileContext';
 
 interface CommentSectionProps {
   issueId: string;
 }
 
 const CommentSection: React.FC<CommentSectionProps> = ({ issueId }) => {
+  const { activeProfile } = useProfile();
   const [newComment, setNewComment] = useState('');
-  const [authorName, setAuthorName] = useState('Community Manager');
   const queryClient = useQueryClient();
   
   // Fetch comments for this issue
@@ -36,14 +36,14 @@ const CommentSection: React.FC<CommentSectionProps> = ({ issueId }) => {
   const handleSubmitComment = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!newComment.trim() || !authorName.trim()) {
-      toast.error('Please provide both your name and comment');
+    if (!newComment.trim() || !activeProfile) {
+      toast.error(activeProfile ? 'Please enter a comment' : 'Profile information is missing');
       return;
     }
     
     const comment: NewComment = {
       issue_id: issueId,
-      author_name: authorName,
+      author_name: activeProfile.name,
       body: newComment
     };
     
@@ -100,24 +100,18 @@ const CommentSection: React.FC<CommentSectionProps> = ({ issueId }) => {
         </div>
       )}
       
-      <form onSubmit={handleSubmitComment} className="space-y-3">
-        <div>
-          <Input
-            placeholder="Your name"
-            value={authorName}
-            onChange={(e) => setAuthorName(e.target.value)}
-            className="mb-2"
-          />
-          <Input
-            placeholder="Add a comment..."
-            value={newComment}
-            onChange={(e) => setNewComment(e.target.value)}
-          />
-        </div>
+      <form onSubmit={handleSubmitComment} className="mt-4 flex gap-2 items-end">
+        <Textarea
+          placeholder={`Add a comment as ${activeProfile?.name || 'User'}...`}
+          value={newComment}
+          onChange={(e) => setNewComment(e.target.value)}
+          className="flex-1 resize-none"
+          rows={2}
+        />
         <Button 
           type="submit" 
           size="sm" 
-          disabled={!newComment.trim() || !authorName.trim() || commentMutation.isPending}
+          disabled={!newComment.trim() || !activeProfile || commentMutation.isPending}
         >
           {commentMutation.isPending ? 'Posting...' : 'Post'}
         </Button>

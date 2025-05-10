@@ -1,16 +1,20 @@
-
 export type Issue = {
   id: string;
+  seq_id?: number; // Sequential global ID
   title: string;
   description: string;
   tags: string[];
-  segment: 'auth' | 'code' | 'other';
-  status: 'pending' | 'in-progress' | 'blocked' | 'solved';
+  segment: 'auth' | 'code' | 'tool' | 'misc';
+  status: 'waiting_for_help' | 'pending' | 'resolved' | 'blocked' | 'archived';
   submitted_by: string;
   assigned_to: string | null;
   ready_for_delivery: boolean;
   created_at: string;
   updated_at: string;
+  resolved_by?: string;
+  resolved_at?: string;
+  affected_user_name?: string;
+  affected_user_email?: string;
 }
 
 export type Comment = {
@@ -21,5 +25,16 @@ export type Comment = {
   created_at: string;
 }
 
-export type NewIssue = Omit<Issue, 'id' | 'segment' | 'created_at' | 'updated_at' | 'ready_for_delivery'>;
+export type NewIssue = {
+  title: string;
+  description: string;
+  tags: string[];
+  segment: 'auth' | 'code' | 'tool' | 'misc';
+  status: string;
+  submitted_by: string;
+  assigned_to: string | null;
+  affected_user_name?: string;
+  affected_user_email?: string;
+}
+
 export type NewComment = Omit<Comment, 'id' | 'created_at'>;

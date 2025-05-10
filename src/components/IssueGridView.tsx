@@ -1,17 +1,17 @@
-
 import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Clock, CheckSquare, XSquare, ChevronDown, ChevronUp } from "lucide-react";
+import { Clock, CheckSquare, XSquare, ChevronDown, ChevronUp, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import StatusSelector from "./StatusSelector";
 import CommentSection from "./CommentSection";
 
-type IssueStatus = 'pending' | 'solved' | 'critical' | 'in-progress' | 'blocked';
+type IssueStatus = 'waiting_for_help' | 'pending' | 'resolved' | 'blocked' | 'archived';
 
 interface Issue {
   id: string;
+  seq_id?: number;
   title: string;
   description: string;
   reporter: {
@@ -30,27 +30,27 @@ interface IssueGridViewProps {
 }
 
 const statusIconMap: Record<string, React.ReactNode> = {
-  pending: <Clock className="h-4 w-4 text-status-pending" />,
-  solved: <CheckSquare className="h-4 w-4 text-status-solved" />,
-  critical: <XSquare className="h-4 w-4 text-status-critical" />,
-  'in-progress': <Clock className="h-4 w-4 text-blue-500" />,
-  blocked: <XSquare className="h-4 w-4 text-orange-500" />
+  pending: <Clock className="h-4 w-4 text-yellow-500" />,
+  resolved: <CheckSquare className="h-4 w-4 text-green-500" />,
+  waiting_for_help: <Clock className="h-4 w-4 text-blue-500" />,
+  blocked: <XSquare className="h-4 w-4 text-red-500" />,
+  archived: <CheckSquare className="h-4 w-4 text-gray-500" />
 };
 
 const statusTextMap: Record<string, string> = {
   pending: 'Pending',
-  solved: 'Resolved',
-  critical: 'Critical',
-  'in-progress': 'In Progress',
-  blocked: 'Blocked'
+  resolved: 'Resolved',
+  waiting_for_help: 'Waiting for Help',
+  blocked: 'Blocked',
+  archived: 'Archived'
 };
 
 const statusClassMap: Record<string, string> = {
-  pending: 'bg-status-pending text-white',
-  solved: 'bg-status-solved text-white',
-  critical: 'bg-status-critical text-white',
-  'in-progress': 'bg-blue-500 text-white',
-  blocked: 'bg-orange-500 text-white'
+  pending: 'bg-yellow-500 text-white',
+  resolved: 'bg-green-500 text-white',
+  waiting_for_help: 'bg-blue-500 text-white',
+  blocked: 'bg-red-500 text-white',
+  archived: 'bg-gray-500 text-white'
 };
 
 const IssueGridView = ({ issues, onStatusChange }: IssueGridViewProps) => {
@@ -98,13 +98,24 @@ const IssueGridView = ({ issues, onStatusChange }: IssueGridViewProps) => {
             className="bg-white rounded-lg shadow-sm p-4 flex flex-col hover:shadow-md transition-all duration-300"
           >
             <div className="flex justify-between items-start mb-2">
-              <h3 className="font-medium text-sm">{issue.title}</h3>
+              <div className="flex items-center gap-2">
+                {issue.seq_id && (
+                  <div className="text-base font-bold text-primary">
+                    #{issue.seq_id.toString().padStart(3, '0')}
+                  </div>
+                )}
+                <h3 className="font-medium text-sm">{issue.title}</h3>
+                <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 flex items-center gap-1">
+                  <Hash className="h-3 w-3" />
+                  {issue.id.split('-')[0]}
+                </Badge>
+              </div>
               <StatusSelector 
                 currentStatus={issue.status}
                 statusClassName={statusClassMap[issue.status]}
                 statusIcon={statusIconMap[issue.status]}
                 statusText={statusTextMap[issue.status]}
-                onStatusChange={(status) => handleStatusChange(issue.id, status)}
+                onStatusChange={(status) => handleStatusChange(issue.id, status as IssueStatus)}
               />
             </div>
             

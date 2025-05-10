@@ -1,6 +1,6 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import IssueCard from './IssueCard';
 import IssueGridView from './IssueGridView';
 import ViewToggle from './ViewToggle';
@@ -13,18 +13,40 @@ import { Label } from "@/components/ui/label";
 import NewIssueDialog from './NewIssueDialog';
 import { fetchIssues, fetchIssuesBySegment, updateIssueStatus } from '@/services/issueService';
 import { Issue } from '@/types/issueTypes';
+import { useProfile } from './ProfileContext';
+import { toast } from 'sonner';
+
+// Define the status types
+type IssueStatus = 'waiting_for_help' | 'pending' | 'resolved' | 'blocked' | 'archived';
+
+// Type guard to check if a string is a valid IssueStatus
+function isIssueStatus(status: string): status is IssueStatus {
+  return ['waiting_for_help', 'pending', 'resolved', 'blocked', 'archived'].includes(status);
+}
 
 interface IssueListProps {
   activeSegment: string | null;
+  activeStatus?: IssueStatus | null;
+  onFilterChange?: (issues: Issue[], showResolved: boolean, statusFilter: string) => void;
 }
 
-const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
+const IssueList: React.FC<IssueListProps> = ({ 
+  activeSegment, 
+  activeStatus = null, 
+  onFilterChange 
+}) => {
+  const location = useLocation();
+  const { activeProfile } = useProfile();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'card' | 'grid'>('card');
   const [showResolved, setShowResolved] = useState(false);
   const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
   const queryClient = useQueryClient();
+
+  // Get tag filter from URL for 10x coder category
+  const urlParams = new URLSearchParams(location.search);
+  const tagFilter = urlParams.get('tag');
 
   // Load saved preferences from localStorage
   useEffect(() => {
@@ -39,16 +61,28 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
     }
   }, []);
 
-  // Query issues data
+  // Query issues data - direct query by segment with no special cases
   const { data: issues = [], isLoading } = useQuery({
     queryKey: ['issues', activeSegment],
-    queryFn: () => activeSegment ? fetchIssuesBySegment(activeSegment) : fetchIssues(),
+    queryFn: async () => {
+      console.log(`Fetching issues with activeSegment: "${activeSegment}"`);
+      
+      // Standard fetching using segment ID
+      const result = activeSegment ? await fetchIssuesBySegment(activeSegment) : await fetchIssues();
+      console.log(`Standard fetch: retrieved ${result.length} issues${activeSegment ? ` for segment "${activeSegment}"` : ' (all segments)'}`);
+      
+      return result;
+    },
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    staleTime: 10000 // 10 seconds
   });
 
   // Status update mutation
   const statusMutation = useMutation({
-    mutationFn: ({ id, newStatus }: { id: string; newStatus: string }) => 
-      updateIssueStatus(id, newStatus),
+    mutationFn: ({ id, newStatus, profileName }: { id: string; newStatus: string; profileName: string }) => 
+      updateIssueStatus(id, newStatus, profileName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['issues'] });
     },
@@ -65,10 +99,59 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
     localStorage.setItem('showResolved', value.toString());
   };
 
-  const handleStatusChange = (id: string, newStatus: 'pending' | 'solved' | 'critical' | 'in-progress' | 'blocked') => {
-    // Map UI status to database status if needed
-    const dbStatus = newStatus === 'solved' ? 'solved' : newStatus;
-    statusMutation.mutate({ id, newStatus: dbStatus });
+  // Update the toggleResolved function
+  const toggleResolved = () => {
+    const newFilter = showResolved ? 'pending' : 'resolved';
+    setStatusFilter(newFilter);
+  };
+
+  // Update the filterIssues function to handle status types safely
+  const filterIssues = () => {
+    let result = [...issues];
+    
+    // Apply segment filtering if applicable
+    if (activeSegment) {
+      console.log(`Filtering by segment: ${activeSegment}`);
+      result = result.filter(issue => issue.segment === activeSegment);
+    }
+    
+    // Apply status filtering from activeStatus or dropdown
+    if (activeStatus) {
+      // Use the activeStatus prop as the primary filter
+      console.log(`Filtering by active status: ${activeStatus}`);
+      result = result.filter(issue => issue.status === activeStatus);
+    } else if (statusFilter !== 'all') {
+      // Use the dropdown filter as fallback
+      // Note: There's a type mismatch here that should be addressed in a more comprehensive refactor
+      // The issue is that statusFilter is a string but issue.status needs to be IssueStatus
+      // A proper fix would involve using a common type system throughout the application
+      result = result.filter(issue => {
+        // @ts-ignore: Type mismatch between string and IssueStatus
+        return issue.status === statusFilter;
+      });
+    }
+    
+    // Apply search filtering
+    if (searchTerm) {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      result = result.filter(issue => 
+        issue.title.toLowerCase().includes(lowerSearchTerm) || 
+        issue.description.toLowerCase().includes(lowerSearchTerm) ||
+        issue.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm))
+      );
+    }
+    
+    return result;
+  };
+
+  // Update the handleStatusChange function
+  const handleStatusChange = (id: string, newStatus: IssueStatus) => {
+    // Pass the active profile name to the mutation
+    statusMutation.mutate({ 
+      id, 
+      newStatus: newStatus, 
+      profileName: activeProfile?.name || 'System' 
+    });
   };
 
   const handleAddNewIssue = (newIssue: any) => {
@@ -76,25 +159,29 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
     // The actual mutation is handled in NewIssueDialog component
   };
 
-  const filteredIssues = issues
-    .filter(issue => {
-      // Filter by resolved status
-      if (!showResolved && issue.status === 'solved') {
-        return false;
-      }
-      
-      // Apply search filter
-      const matchesSearch = 
-        issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        issue.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        issue.submitted_by.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        issue.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      // Apply status filter
-      const matchesStatus = statusFilter === 'all' || issue.status === statusFilter;
-      
-      return matchesSearch && matchesStatus;
+  const filteredIssues = filterIssues();
+
+  // Notify parent component about filter changes
+  useEffect(() => {
+    // First filter the issues based on current filters
+    const currentFilteredIssues = filterIssues();
+
+    // Dispatch custom event for Issues component to listen to
+    const event = new CustomEvent('issueFiltersChanged', {
+      detail: { issues: currentFilteredIssues, showResolved, statusFilter }
     });
+    window.dispatchEvent(event);
+    
+    // Call callback if provided
+    if (onFilterChange) {
+      onFilterChange(currentFilteredIssues, showResolved, statusFilter);
+    }
+  }, [issues, showResolved, statusFilter, onFilterChange, activeSegment]);
+
+  // Update the status filter handler to handle types safely
+  const handleStatusFilterChange = (status: string) => {
+    setStatusFilter(status);
+  };
 
   return (
     <div className="space-y-6">
@@ -115,17 +202,17 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
               />
             </div>
             <div className="w-full sm:w-48">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger>
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Issues</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
+                  <SelectItem value="waiting_for_help">Waiting for Help</SelectItem>
                   <SelectItem value="blocked">Blocked</SelectItem>
-                  <SelectItem value="critical">Critical</SelectItem>
-                  <SelectItem value="solved">Resolved</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -160,6 +247,7 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
                     <IssueCard
                       key={issue.id}
                       id={issue.id}
+                      seq_id={issue.seq_id}
                       title={issue.title}
                       description={issue.description}
                       reporter={{
@@ -185,6 +273,7 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
                 <IssueGridView 
                   issues={filteredIssues.map(issue => ({
                     id: issue.id,
+                    seq_id: issue.seq_id,
                     title: issue.title,
                     description: issue.description,
                     reporter: {
@@ -205,6 +294,7 @@ const IssueList: React.FC<IssueListProps> = ({ activeSegment }) => {
             open={isNewIssueOpen} 
             onOpenChange={setIsNewIssueOpen}
             onSubmit={handleAddNewIssue}
+            defaultCategory={activeSegment || ''}
           />
         </>
       )}

@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -7,12 +6,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { Clock, CheckSquare, XSquare } from "lucide-react";
+import { Clock, CheckSquare, XSquare, Archive, HelpCircle } from "lucide-react";
 
-type IssueStatus = 'pending' | 'solved' | 'critical' | 'in-progress' | 'blocked';
+// Restricted status types
+type IssueStatus = 'waiting_for_help' | 'pending' | 'resolved' | 'blocked' | 'archived';
 
 interface StatusSelectorProps {
-  currentStatus: IssueStatus;
+  currentStatus: string;
   statusClassName: string;
   statusIcon: React.ReactNode;
   statusText: string;
@@ -31,11 +31,11 @@ const StatusSelector: React.FC<StatusSelectorProps> = ({
 
   // Status options with their display properties
   const statusOptions: {id: IssueStatus, label: string, icon: React.ReactNode, className: string}[] = [
-    { id: 'pending', label: 'Pending', icon: <Clock className="h-4 w-4" />, className: 'bg-status-pending text-white' },
-    { id: 'in-progress', label: 'In Progress', icon: <Clock className="h-4 w-4" />, className: 'bg-blue-500 text-white' },
-    { id: 'blocked', label: 'Blocked', icon: <XSquare className="h-4 w-4" />, className: 'bg-orange-500 text-white' },
-    { id: 'solved', label: 'Resolved', icon: <CheckSquare className="h-4 w-4" />, className: 'bg-status-solved text-white' },
-    { id: 'critical', label: 'Critical', icon: <XSquare className="h-4 w-4" />, className: 'bg-status-critical text-white' }
+    { id: 'pending', label: 'Pending', icon: <Clock className="h-4 w-4" />, className: 'bg-yellow-500 text-white' },
+    { id: 'waiting_for_help', label: 'Waiting for Help', icon: <HelpCircle className="h-4 w-4" />, className: 'bg-blue-500 text-white' },
+    { id: 'resolved', label: 'Resolved', icon: <CheckSquare className="h-4 w-4" />, className: 'bg-green-500 text-white' },
+    { id: 'blocked', label: 'Blocked', icon: <XSquare className="h-4 w-4" />, className: 'bg-red-500 text-white' },
+    { id: 'archived', label: 'Archived', icon: <Archive className="h-4 w-4" />, className: 'bg-gray-500 text-white' }
   ];
 
   const handleClick = (e: React.MouseEvent) => {

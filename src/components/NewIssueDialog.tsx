@@ -1,77 +1,209 @@
-
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useForm } from 'react-hook-form';
 import { createIssue } from '@/services/issueService';
 import { NewIssue } from '@/types/issueTypes';
+import { useProfile } from './ProfileContext';
+import { toast } from 'sonner';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger, 
+  SelectValue
+} from "@/components/ui/select";
+import { Tag, FileCode, Code, HelpCircle, ChevronDown, ChevronUp, User } from "lucide-react";
 
 interface NewIssueFormData {
   title: string;
   description: string;
-  submitted_by: string;
-  email?: string;
-  tags: string;
+  category: string;
+  affectedUserName?: string;
+  affectedUserEmail?: string;
 }
 
 interface NewIssueDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: any) => void;
+  defaultCategory?: string; // Active tab category
 }
 
-const NewIssueDialog: React.FC<NewIssueDialogProps> = ({ open, onOpenChange, onSubmit }) => {
-  const { register, handleSubmit, reset, formState: { errors, isValid } } = useForm<NewIssueFormData>({
+// Issue category definitions
+const CATEGORIES = [
+  { id: 'auth', name: 'Auth & Login', icon: Tag, color: 'text-purple-500' },
+  { id: 'code', name: 'Code Generation', icon: FileCode, color: 'text-blue-500' },
+  { id: 'tool', name: 'Tool', icon: Code, color: 'text-green-500' },
+  { id: 'misc', name: 'Other', icon: HelpCircle, color: 'text-gray-500' }
+];
+
+// Map category ID to related tags
+const CATEGORY_TAGS = {
+  'auth': ['#auth', '#login', '#authentication'],
+  'code': ['#code-generation', '#ai-code'],
+  'tool': ['#tool', '#productivity'],
+  'misc': ['#misc', '#other']
+};
+
+// Standardized segment mapping to ensure consistent database storage
+const SEGMENT_MAPPING = {
+  'auth': 'auth',
+  'code': 'code', 
+  'tool': 'tool', // Tool issues now use their own segment
+  'misc': 'misc'
+};
+
+const NewIssueDialog: React.FC<NewIssueDialogProps> = ({ 
+  open, 
+  onOpenChange, 
+  onSubmit, 
+  defaultCategory = '' 
+}) => {
+  const { activeProfile } = useProfile();
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [showAffectedUser, setShowAffectedUser] = useState(false);
+  
+  const { 
+    register, 
+    handleSubmit, 
+    reset, 
+    setValue, 
+    watch, 
+    formState: { errors, isValid } 
+  } = useForm<NewIssueFormData>({
     defaultValues: {
       title: '',
       description: '',
-      submitted_by: '',
-      email: '',
-      tags: '',
+      category: '',
+      affectedUserName: '',
+      affectedUserEmail: '',
     },
   });
+  
+  const currentCategory = watch('category');
+  const affectedUserEmail = watch('affectedUserEmail');
+  
+  // Set category when dialog opens or defaultCategory changes
+  useEffect(() => {
+    if (open && defaultCategory) {
+      setValue('category', defaultCategory);
+      setSelectedCategory(defaultCategory);
+    }
+  }, [open, defaultCategory, setValue]);
   
   const queryClient = useQueryClient();
 
   // Mutation to create a new issue
   const issueMutation = useMutation({
     mutationFn: (issue: NewIssue) => createIssue(issue),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['issues'] });
-      reset();
-      onOpenChange(false);
-    },
   });
 
   const submitForm = (data: NewIssueFormData) => {
-    // Convert comma-separated tags to array and ensure # prefix
-    const formattedTags = data.tags
-      .split(',')
-      .map(tag => tag.trim())
-      .filter(Boolean)
-      .map(tag => tag.startsWith('#') ? tag : `#${tag}`);
+    if (!data.category || !activeProfile) {
+      // Show error message if category is missing or profile not loaded
+      if (!data.category) {
+        toast.error('Please select a category for the issue');
+      }
+      if (!activeProfile) {
+        toast.error('Profile information is missing. Please select a profile first.');
+      }
+      return;
+    }
 
-    const newIssue: NewIssue = {
-      title: data.title,
-      description: data.description,
-      submitted_by: data.submitted_by,
-      assigned_to: null,
-      tags: formattedTags,
-      status: 'pending'
-    };
+    try {
+      // Get tags for the selected category
+      const categoryTags = CATEGORY_TAGS[data.category as keyof typeof CATEGORY_TAGS] || ['#misc'];
+      
+      // Map the category to the correct segment using standardized mapping
+      const segment = SEGMENT_MAPPING[data.category as keyof typeof SEGMENT_MAPPING];
+      
+      console.log(`Creating new issue with category: ${data.category}, segment: ${segment}, tags: ${categoryTags.join(', ')}`);
+      
+      // Create the new issue payload
+      const newIssue: NewIssue = {
+        title: data.title,
+        description: data.description,
+        submitted_by: activeProfile.name,
+        assigned_to: null,
+        tags: categoryTags,
+        status: 'pending',
+        segment: segment as 'auth' | 'code' | 'misc'
+      };
 
-    issueMutation.mutate(newIssue);
-    onSubmit(newIssue);
+      // Add affected user info if provided
+      if (showAffectedUser) {
+        if (data.affectedUserName) {
+          newIssue.affected_user_name = data.affectedUserName;
+        }
+        if (data.affectedUserEmail) {
+          newIssue.affected_user_email = data.affectedUserEmail;
+        }
+      }
+
+      // Show submitting toast
+      const toastId = toast.loading('Submitting issue...');
+      
+      // Submit the issue
+      issueMutation.mutate(newIssue, {
+        onSuccess: () => {
+          toast.dismiss(toastId);
+          toast.success('Issue created successfully');
+          // Refresh issues list to show the new issue
+          queryClient.invalidateQueries({ queryKey: ['issues'] });
+          // Also invalidate segment-specific queries
+          if (segment) {
+            queryClient.invalidateQueries({ queryKey: ['issues', segment] });
+          }
+          // Invalidate the direct counts query
+          queryClient.invalidateQueries({ queryKey: ['issue-counts'] });
+          
+          console.log('Successfully invalidated all relevant issue queries');
+          reset();
+          setSelectedCategory('');
+          setShowAffectedUser(false);
+          onOpenChange(false);
+          onSubmit(newIssue);
+        },
+        onError: (error) => {
+          toast.dismiss(toastId);
+          toast.error(`Failed to create issue: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.error('Error creating issue:', error);
+        }
+      });
+    } catch (error) {
+      // Handle any unexpected errors
+      console.error('Error preparing issue submission:', error);
+      toast.error('Failed to prepare issue submission');
+    }
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setValue('category', value);
+    setSelectedCategory(value);
+  };
+
+  const resetForm = () => {
+    reset();
+    setSelectedCategory('');
+    setShowAffectedUser(false);
+    onOpenChange(false);
+  };
+
+  // Email validation function
+  const isValidEmail = (email: string) => {
+    return !email || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
-      if (!isOpen) reset();
-      onOpenChange(isOpen);
+      if (!isOpen) resetForm();
+      else onOpenChange(isOpen);
     }}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
@@ -106,54 +238,101 @@ const NewIssueDialog: React.FC<NewIssueDialogProps> = ({ open, onOpenChange, onS
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="submitted_by">Your Name</Label>
-              <Input 
-                id="submitted_by"
-                placeholder="Your name"
-                {...register('submitted_by', { required: true })}
-                className={errors.submitted_by ? 'border-red-500' : ''}
-              />
-              {errors.submitted_by && (
-                <p className="text-xs text-red-500">Name is required</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Your Email (optional)</Label>
-              <Input 
-                id="email"
-                placeholder="your.email@example.com"
-                type="email"
-                {...register('email')}
-              />
-            </div>
-          </div>
-
           <div className="space-y-2">
-            <Label htmlFor="tags">Tags (comma separated)</Label>
-            <Input 
-              id="tags"
-              placeholder="e.g. #login-issue, #email, #backend"
-              {...register('tags', { required: true })}
-              className={errors.tags ? 'border-red-500' : ''}
-            />
-            {errors.tags && (
-              <p className="text-xs text-red-500">At least one tag is required</p>
+            <Label htmlFor="category">Issue Category</Label>
+            <Select 
+              value={selectedCategory} 
+              onValueChange={handleCategoryChange}
+            >
+              <SelectTrigger 
+                id="category"
+                className={!selectedCategory ? 'text-muted-foreground border-red-500' : ''}
+              >
+                <SelectValue placeholder="Select issue category..." />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIES.map(category => (
+                  <SelectItem key={category.id} value={category.id} className="flex items-center">
+                    <div className="flex items-center gap-2">
+                      <category.icon className={`h-4 w-4 ${category.color}`} />
+                      <span>{category.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!selectedCategory && (
+              <p className="text-xs text-red-500">Category selection is required</p>
             )}
           </div>
+
+          {/* Reporter info - automatically using profile */}
+          <div className="bg-gray-50 p-3 rounded-md">
+            <div className="flex items-center gap-2 text-sm text-secondary-light">
+              <User className="h-4 w-4" />
+              <span>Reporting as: <span className="font-medium text-secondary">{activeProfile?.name}</span></span>
+            </div>
+          </div>
+
+          {/* Collapsible Affected User section */}
+          <Collapsible
+            open={showAffectedUser}
+            onOpenChange={setShowAffectedUser}
+            className="border rounded-md p-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-primary" />
+                <h4 className="text-sm font-medium">Affected User Details</h4>
+              </div>
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="sm" className="p-1 h-auto">
+                  {showAffectedUser ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+            </div>
+            
+            <CollapsibleContent className="space-y-3 pt-3">
+              <div className="space-y-2">
+                <Label htmlFor="affectedUserName">Affected User Name</Label>
+                <Input 
+                  id="affectedUserName"
+                  placeholder="Name of affected user"
+                  {...register('affectedUserName')}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="affectedUserEmail">Affected User Email</Label>
+                <Input 
+                  id="affectedUserEmail"
+                  placeholder="email@example.com"
+                  type="email"
+                  {...register('affectedUserEmail', {
+                    validate: (value) => isValidEmail(value) || 'Please enter a valid email'
+                  })}
+                  className={errors.affectedUserEmail ? 'border-red-500' : ''}
+                />
+                {errors.affectedUserEmail && (
+                  <p className="text-xs text-red-500">{errors.affectedUserEmail.message}</p>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           <DialogFooter>
             <Button 
               type="button" 
               variant="outline" 
-              onClick={() => onOpenChange(false)}
+              onClick={resetForm}
               disabled={issueMutation.isPending}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={issueMutation.isPending}>
+            <Button 
+              type="submit" 
+              disabled={issueMutation.isPending || !selectedCategory || !isValid}
+            >
               {issueMutation.isPending ? 'Submitting...' : 'Submit Issue'}
             </Button>
           </DialogFooter>
