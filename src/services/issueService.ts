@@ -374,3 +374,42 @@ export const debugFetchArchivedIssues = async () => {
   console.log(`Debug: Found ${data?.length || 0} archived issues:`, data);
   return data as Issue[];
 };
+
+export const updateIssue = async (
+  id: string,
+  updates: Partial<Pick<Issue, 'title' | 'description' | 'status'>>
+) => {
+  try {
+    const { error } = await supabase
+      .from('issues')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) {
+      toast.error('Failed to update issue');
+      throw error;
+    }
+    toast.success('Issue updated successfully');
+    return true;
+  } catch (error) {
+    toast.error('Failed to update issue');
+    throw error;
+  }
+};
+
+export const deleteIssue = async (id: string) => {
+  try {
+    const { error } = await supabase
+      .from('issues')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      toast.error('Failed to delete issue');
+      throw error;
+    }
+    toast.success('Issue deleted successfully');
+    return true;
+  } catch (error) {
+    toast.error('Failed to delete issue');
+    throw error;
+  }
+};

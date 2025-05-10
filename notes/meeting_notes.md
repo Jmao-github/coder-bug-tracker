@@ -109,6 +109,44 @@
   - Separate counts for filtered vs. total: Rejected for UI simplicity
   - Client-side counting from filtered data: Rejected for less reliable results than direct database queries
 
+### 2025-05-10T01:50:14.356-04:00 | UI Simplification and Comment Section Enhancement
+- **Decision**: Simplified UI by removing Grid view option, "Show Resolved Issues" toggle, and tags display
+- **Rationale**: Creates a more focused and streamlined interface with less visual clutter and cognitive load
+- **Alternatives Considered**:
+  - Maintaining Grid view with simplified cards: Rejected for consistency and simplicity
+  - Making tags collapsible instead of removing: Rejected for clean, focused design
+  - Moving toggles to settings page: Rejected as unnecessary complexity for current needs
+
+- **Decision**: Enhanced comment section to always be visible with improved input accessibility
+- **Rationale**: Improves team collaboration by making comments immediately visible and easier to add
+- **Alternatives Considered**:
+  - Expandable comment sections: Rejected for reducing visibility and accessibility
+  - Separate comment page: Rejected for breaking workflow continuity
+  - Comment-focused view option: Rejected in favor of integrated comment experience
+
+### 2025-05-10T01:54:04.979-04:00 | Search Enhancement and UI Cleanup
+- **Decision**: Removed redundant status dropdown from the top filter bar
+- **Rationale**: Eliminates UI redundancy and provides a more focused, clear interaction model
+- **Alternatives Considered**:
+  - Keeping both controls with synchronized state: Rejected for UI complexity and cognitive load
+  - Moving dropdown to a different location: Rejected for unnecessary redundancy
+  - Making dropdown a secondary filter: Rejected for confusing interaction patterns
+
+- **Decision**: Enhanced search functionality with fuzzy matching and direct index access
+- **Rationale**: Improves issue discovery with more flexible search patterns and quick index navigation
+- **Alternatives Considered**:
+  - Advanced query language: Rejected for increased learning curve
+  - Dedicated search page: Rejected for breaking workflow
+  - Separate quick filters: Rejected in favor of single, powerful search input
+
+### 2025-05-10T02:03:58.447-04:00 | UI Spacing Improvement
+- **Decision**: Added proper spacing between the search controls and issue list
+- **Rationale**: Improves visual hierarchy and readability by creating clearer separation between UI sections
+- **Alternatives Considered**:
+  - Visual separator line: Rejected for adding unnecessary visual elements
+  - Background color differentiation: Rejected for maintaining clean, minimal aesthetic
+  - Card elevation changes: Rejected in favor of simpler spacing solution
+
 ## Version History
 
 ### 2025-05-09T18:50:59.938-04:00 | Initial Project Setup
@@ -179,3 +217,31 @@
 - Ensured segment counts remain consistent across different status views
 - Improved the updateGlobalSegmentCounts function to always set accurate total count
 - Removed conditional logic in direct count handling to ensure consistent updates
+
+### 2025-05-10T01:50:14.356-04:00 | UI Simplification and Comment Section Enhancement
+- Removed Grid layout option to simplify the view system and maintain only Card view
+- Removed "Show Resolved Issues" toggle to streamline the filtering interface
+- Removed tag displays beneath issue descriptions to reduce visual clutter
+- Modified comment sections to always be visible beneath issues
+- Enhanced comment sections to show first comment previews with "View More" option
+- Ensured comment input is always accessible for all issues regardless of comment status
+- Improved comment preview to show only first sentence with option to expand
+- Added count indicator for multiple comments (e.g., "+2 more comments")
+- Simplified state management for comment expansion and visibility
+
+### 2025-05-10T01:54:04.979-04:00 | Search Enhancement and UI Cleanup
+- Removed redundant status dropdown from the top filter bar
+- Established status tile cards as the primary and only status filtering mechanism
+- Enhanced search functionality with fuzzy text matching throughout issue content
+- Added ability to search for issues by index number using #xxx format (e.g., #054)
+- Updated search placeholder to indicate new search capabilities
+- Improved search algorithm to match text anywhere in title or description
+- Added partial ID matching for more flexible issue discovery
+- Updated layout and spacing of action buttons for cleaner interface
+
+### 2025-05-10T02:03:58.447-04:00 | UI Spacing Improvement
+- Added proper margin (mb-8) between the search/filter bar and the issue cards
+- Increased vertical spacing to improve content separation and readability
+- Enhanced visual hierarchy by creating clearer boundaries between UI sections
+- Improved overall layout balance and rhythm with consistent spacing
+- Reduced visual crowding in the main issue view

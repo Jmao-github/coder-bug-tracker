@@ -2,14 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
 import IssueCard from './IssueCard';
-import IssueGridView from './IssueGridView';
-import ViewToggle from './ViewToggle';
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import NewIssueDialog from './NewIssueDialog';
 import { fetchIssues, fetchIssuesBySegment, fetchIssuesByStatus, updateIssueStatus } from '@/services/issueService';
 import { Issue } from '@/types/issueTypes';
@@ -39,8 +34,6 @@ const IssueList: React.FC<IssueListProps> = ({
   const { activeProfile } = useProfile();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'card' | 'grid'>('card');
-  const [showResolved, setShowResolved] = useState(false);
   const [isNewIssueOpen, setIsNewIssueOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -48,20 +41,7 @@ const IssueList: React.FC<IssueListProps> = ({
   const urlParams = new URLSearchParams(location.search);
   const tagFilter = urlParams.get('tag');
 
-  // Load saved preferences from localStorage
-  useEffect(() => {
-    const savedViewMode = localStorage.getItem('issueViewMode');
-    if (savedViewMode && (savedViewMode === 'card' || savedViewMode === 'grid')) {
-      setViewMode(savedViewMode);
-    }
-    
-    const savedShowResolved = localStorage.getItem('showResolved');
-    if (savedShowResolved) {
-      setShowResolved(savedShowResolved === 'true');
-    }
-  }, []);
-
-  // Determine the effective status filter from the dropdown or the activeStatus prop
+  // Determine the effective status filter from the activeStatus prop
   const effectiveStatusFilter = activeStatus || 
     (statusFilter !== 'all' && isIssueStatus(statusFilter) ? statusFilter : null);
   
@@ -112,35 +92,36 @@ const IssueList: React.FC<IssueListProps> = ({
     },
   });
 
-  // Save preferences to localStorage
-  const handleViewModeChange = (mode: 'card' | 'grid') => {
-    setViewMode(mode);
-    localStorage.setItem('issueViewMode', mode);
-  };
-
-  const handleShowResolvedChange = (value: boolean) => {
-    setShowResolved(value);
-    localStorage.setItem('showResolved', value.toString());
-  };
-
-  // Update the toggleResolved function
-  const toggleResolved = () => {
-    const newFilter = showResolved ? 'in_progress' : 'resolved';
-    setStatusFilter(newFilter);
-  };
-
-  // Filter issues from the loaded data based on current filters
+  // Enhanced filter function with fuzzy matching and index search
   const filterIssues = () => {
     let result = [...issues];
     
-    // Apply search filtering only - the segment and status filtering is handled at query time
     if (searchTerm) {
-      const lowerSearchTerm = searchTerm.toLowerCase();
-      result = result.filter(issue => 
-        issue.title.toLowerCase().includes(lowerSearchTerm) || 
-        issue.description.toLowerCase().includes(lowerSearchTerm) ||
-        issue.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm))
-      );
+      // Check if searching by index format (#123)
+      const indexMatch = searchTerm.match(/^#(\d+)$/);
+      
+      if (indexMatch) {
+        // Get the numeric value after # and search by seq_id
+        const searchIndex = parseInt(indexMatch[1], 10);
+        result = result.filter(issue => 
+          issue.seq_id === searchIndex
+        );
+      } else {
+        // Fuzzy search in title, description, and tags
+        const lowerSearchTerm = searchTerm.toLowerCase();
+        result = result.filter(issue => 
+          // Search in title
+          issue.title.toLowerCase().includes(lowerSearchTerm) || 
+          // Search in description
+          issue.description.toLowerCase().includes(lowerSearchTerm) ||
+          // Search in tags
+          issue.tags.some(tag => tag.toLowerCase().includes(lowerSearchTerm)) ||
+          // Search in ID (partial matching)
+          issue.id.toLowerCase().includes(lowerSearchTerm) ||
+          // Search by seq_id (as string matching)
+          (issue.seq_id && issue.seq_id.toString().includes(lowerSearchTerm))
+        );
+      }
     }
     
     console.log(`Filter results: ${result.length} issues after filtering`);
@@ -171,15 +152,15 @@ const IssueList: React.FC<IssueListProps> = ({
 
     // Dispatch custom event for Issues component to listen to
     const event = new CustomEvent('issueFiltersChanged', {
-      detail: { issues: currentFilteredIssues, showResolved, statusFilter }
+      detail: { issues: currentFilteredIssues, showResolved: false, statusFilter }
     });
     window.dispatchEvent(event);
     
     // Call callback if provided
     if (onFilterChange) {
-      onFilterChange(currentFilteredIssues, showResolved, statusFilter);
+      onFilterChange(currentFilteredIssues, false, statusFilter);
     }
-  }, [issues, showResolved, statusFilter, onFilterChange, activeSegment]);
+  }, [issues, statusFilter, onFilterChange, activeSegment]);
 
   // Update the status filter handler to handle types safely
   const handleStatusFilterChange = (status: string) => {
@@ -198,49 +179,24 @@ const IssueList: React.FC<IssueListProps> = ({
           <p>Loading issues...</p>
         </div>
       ) : (
-        <>
-          <div className="flex flex-col sm:flex-row gap-4 items-end">
+        <div className="issue-list-container">
+          <div className="flex flex-col sm:flex-row gap-4 items-end mb-8">
             <div className="relative flex-1">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-secondary-light" />
               <Input
-                placeholder="Search issues..."
+                placeholder="Search issues by text or #index..."
                 className="pl-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="w-full sm:w-48">
-              <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Issues</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="waiting_for_help">Waiting for Help</SelectItem>
-                  <SelectItem value="blocked">Blocked</SelectItem>
-                  <SelectItem value="resolved">Resolved</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <ViewToggle viewMode={viewMode} onChange={handleViewModeChange} />
             <Button 
               onClick={() => setIsNewIssueOpen(true)}
-              className="ml-auto sm:ml-0"
+              className="ml-auto"
               size="sm"
             >
               <Plus className="h-4 w-4 mr-1" /> New Issue
             </Button>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <Switch 
-              id="showResolved" 
-              checked={showResolved} 
-              onCheckedChange={handleShowResolvedChange}
-            />
-            <Label htmlFor="showResolved">Show Resolved Issues</Label>
           </div>
 
           {filteredIssues.length === 0 ? (
@@ -249,52 +205,33 @@ const IssueList: React.FC<IssueListProps> = ({
             </div>
           ) : (
             <div className="animate-fade-in">
-              {viewMode === 'card' ? (
-                <div className="grid grid-cols-1 gap-6">
-                  {filteredIssues.map((issue, index) => (
-                    <IssueCard
-                      key={issue.id}
-                      id={issue.id}
-                      seq_id={issue.seq_id}
-                      title={issue.title}
-                      description={issue.description}
-                      reporter={{
-                        name: issue.submitted_by,
-                        email: undefined
-                      }}
-                      dateReported={new Date(issue.created_at).toLocaleString('en-US', {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true
-                      })}
-                      status={issue.status as any}
-                      tags={issue.tags}
-                      index={index}
-                      onStatusChange={handleStatusChange}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <IssueGridView 
-                  issues={filteredIssues.map(issue => ({
-                    id: issue.id,
-                    seq_id: issue.seq_id,
-                    title: issue.title,
-                    description: issue.description,
-                    reporter: {
+              <div className="grid grid-cols-1 gap-6">
+                {filteredIssues.map((issue, index) => (
+                  <IssueCard
+                    key={issue.id}
+                    id={issue.id}
+                    seq_id={issue.seq_id}
+                    title={issue.title}
+                    description={issue.description}
+                    reporter={{
                       name: issue.submitted_by,
                       email: undefined
-                    },
-                    dateReported: new Date(issue.created_at).toLocaleString(),
-                    status: issue.status as any,
-                    tags: issue.tags
-                  }))} 
-                  onStatusChange={handleStatusChange}
-                />
-              )}
+                    }}
+                    dateReported={new Date(issue.created_at).toLocaleString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                    status={issue.status as any}
+                    tags={issue.tags}
+                    index={index}
+                    onStatusChange={handleStatusChange}
+                  />
+                ))}
+              </div>
             </div>
           )}
           
@@ -304,7 +241,7 @@ const IssueList: React.FC<IssueListProps> = ({
             onSubmit={handleAddNewIssue}
             defaultCategory={activeSegment || ''}
           />
-        </>
+        </div>
       )}
     </div>
   );

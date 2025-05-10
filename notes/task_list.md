@@ -24,4 +24,10 @@
 | Fix category/segment consistency | High | ✅ | Yes |
 | Implement archive functionality for issues | High | ✅ | Yes |
 | Fix status filter toggle behavior | High | ✅ | Yes |
-| Fix total issue count inconsistency across status filters | High | ✅ | Yes | 
+| Fix total issue count inconsistency across status filters | High | ✅ | Yes |
+| Simplify UI by removing Grid view and Show Resolved toggle | Medium | ✅ | Yes |
+| Remove tags display from issue cards for cleaner UI | Medium | ✅ | Yes |
+| Enhance comment section visibility and accessibility | High | ✅ | Yes |
+| Remove redundant status dropdown | Medium | ✅ | Yes |
+| Improve search with fuzzy matching and index search | High | ✅ | Yes |
+| Improve spacing between UI elements for better readability | Medium | ✅ | Yes | 

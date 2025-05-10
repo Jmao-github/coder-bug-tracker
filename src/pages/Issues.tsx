@@ -276,26 +276,31 @@ const Issues: React.FC = () => {
     }
   };
 
+  const handleFilterChange = (filteredIssues: Issue[], showResolved: boolean, statusFilter: string) => {
+    // When filtering occurs in the IssueList component, keep track of metrics
+    console.log(`Filter change: ${filteredIssues.length} issues remain after filtering.`);
+  };
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-6xl">
       <ScrollIndicator />
-      
+       
       <h1 className="text-3xl font-bold mb-6">
         {getPageTitle()}
       </h1>
-      
+        
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <SegmentNavigation 
-            activeSegment={activeSegment} 
+            activeSegment={activeSegment}
             onSegmentChange={handleSegmentChange}
             segmentCounts={segmentCounts}
           />
-          
+           
           <IssueList 
             activeSegment={activeSegment}
             activeStatus={activeStatus}
-            onFilterChange={undefined}
+            onFilterChange={handleFilterChange}
           />
         </div>
         
@@ -308,7 +313,7 @@ const Issues: React.FC = () => {
               <div className="text-4xl font-bold text-center">{totalIssueCount}</div>
             </CardContent>
           </Card>
-          
+           
           <div className="space-y-2">
             <h2 className="text-lg font-medium px-1">Issues by Status</h2>
             <StatusTiles 
