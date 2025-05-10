@@ -23,6 +23,16 @@ This is a bug tracking system built with React, TypeScript, and Vite. It integra
 | User Assignment | Assign issues to specific team members | Low | No |
 | Export Functionality | Export issues to various formats | Low | No |
 
+## Recent Improvements
+
+### Filter and Metrics Enhancements
+- [x] Fixed status filter toggle to maintain selection when clicked again
+- [x] Added dedicated "Clear Filter" button for explicit filter removal
+- [x] Ensured total issue count remains consistent across all status filters
+- [x] Improved segment counts to always show accurate totals regardless of active filters
+- [x] Enhanced data fetching to properly include all issues in count calculations
+- [x] Optimized database queries for more reliable metrics
+
 ## User Flows
 
 ### Creating a New Issue
@@ -67,8 +77,10 @@ This is a bug tracking system built with React, TypeScript, and Vite. It integra
 - [x] Status values are constrained to valid options (waiting_for_help, in_progress, blocked, resolved, archived)
 - [x] Resolved status correctly tracks who resolved the issue and when
 - [x] Status counts display accurately on dashboard metrics
+- [x] Status filter maintains selection when clicked again and provides explicit clearing option
 
 ### Issue Categorization
 - [x] Issues can be filtered by segment/category
 - [x] Category navigation updates the URL
 - [x] Categories are clearly labeled and accessible 
+- [x] Total issue count remains consistent regardless of active filters 

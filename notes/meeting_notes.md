@@ -93,6 +93,22 @@
   - Using separate API endpoint: Rejected to maintain code simplicity
   - Complex caching strategy: Rejected as unnecessary for current scale
 
+### 2025-05-10T24:27:07.444-04:00 | Status Filter Toggle Fix
+- **Decision**: Modified status filter behavior to lock selection and prevent toggling back to all issues
+- **Rationale**: Improves UX by requiring an explicit "Clear Filter" action rather than inadvertent toggle-off
+- **Alternatives Considered**:
+  - Maintaining toggle behavior with visual indicator: Rejected for less intuitive interaction model
+  - Dropdown-only filtering: Rejected for losing the benefits of direct status tile interaction
+  - Complex filter state management: Rejected for a simpler, more direct approach
+
+### 2025-05-10T24:27:07.444-04:00 | Total Issue Count Consistency Fix
+- **Decision**: Ensured total issue count remains consistent regardless of active status filters
+- **Rationale**: Provides accurate global metrics while allowing filtered views, maintaining data integrity
+- **Alternatives Considered**:
+  - Dynamic count label that changes with filters: Rejected for potential user confusion
+  - Separate counts for filtered vs. total: Rejected for UI simplicity
+  - Client-side counting from filtered data: Rejected for less reliable results than direct database queries
+
 ## Version History
 
 ### 2025-05-09T18:50:59.938-04:00 | Initial Project Setup
@@ -153,3 +169,13 @@
 - Enhanced fetchIssuesByStatus function to properly handle all status types
 - Improved type safety for status filtering in React components
 - Fixed edge cases with IssueList component state management for archived issues
+
+### 2025-05-10T24:27:07.444-04:00 | Status Filter and Total Count Fixes
+- Fixed status filter toggle behavior to maintain selection when clicked again
+- Added "Clear Filter" button to provide explicit way to return to all issues view
+- Modified Issues component to always include all issues (including archived) when calculating total count
+- Updated fetchIssues parameter to always fetch all issues for counting regardless of status
+- Fixed total issue count inconsistency when switching between different status filters
+- Ensured segment counts remain consistent across different status views
+- Improved the updateGlobalSegmentCounts function to always set accurate total count
+- Removed conditional logic in direct count handling to ensure consistent updates

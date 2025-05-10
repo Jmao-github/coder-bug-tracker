@@ -22,4 +22,6 @@
 | Standardize issue status options | High | ✅ | Yes |
 | Fix "Show More/Less" functionality | Medium | ✅ | Yes |
 | Fix category/segment consistency | High | ✅ | Yes |
-| Implement archive functionality for issues | High | ✅ | Yes | 
+| Implement archive functionality for issues | High | ✅ | Yes |
+| Fix status filter toggle behavior | High | ✅ | Yes |
+| Fix total issue count inconsistency across status filters | High | ✅ | Yes | 
