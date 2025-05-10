@@ -68,6 +68,31 @@
   - Using localStorage cache: Rejected for potential data staleness
   - WebSocket live updates: Rejected as unnecessarily complex for current needs
 
+### 2025-05-09T23:14:39.453-04:00 | Analytics and Status Filter Enhancement
+- **Decision**: Replaced generic analytics boxes with status-based summary tiles
+- **Rationale**: Provides more actionable insights and interactive filtering by status across all categories
+- **Alternatives Considered**:
+  - Pie chart visualization: Rejected as less interactive for filtering purposes
+  - Separate status dashboard: Rejected in favor of integrated filtering experience
+  - Complex analytics dashboard: Rejected for simplicity and focus on core functionality
+
+### 2025-05-09T23:49:46.963-04:00 | Archive Functionality Implementation
+- **Decision**: Implemented archive functionality that removes archived issues from all regular views
+- **Rationale**: Maintains clean and focused interface while still preserving archived issues for reference
+- **Alternatives Considered**:
+  - Permanently deleting issues: Rejected to maintain audit history
+  - Hiding with CSS: Rejected as it would still load archived items unnecessarily
+  - Archive flag without database changes: Rejected for data consistency and integrity reasons
+  - Separate archive table: Rejected to maintain schema simplicity
+
+### 2025-05-10T00:15:32.123-04:00 | Archive Functionality Fixes
+- **Decision**: Enhanced archive functionality to properly display archived issues when filtered
+- **Rationale**: Ensures users can access archived issues when needed while keeping them out of main views
+- **Alternatives Considered**:
+  - Client-side filtering only: Rejected for performance reasons with large datasets
+  - Using separate API endpoint: Rejected to maintain code simplicity
+  - Complex caching strategy: Rejected as unnecessary for current scale
+
 ## Version History
 
 ### 2025-05-09T18:50:59.938-04:00 | Initial Project Setup
@@ -98,3 +123,33 @@
 - Added database constraint to enforce valid status values
 - Created parallel data fetching strategy for status metrics reliability
 - Updated all relevant components for consistent status display and behavior
+
+### 2025-05-09T23:14:39.453-04:00 | Enhanced Issue Management Features
+- Replaced "10xCoder" category with "Tool" for clarity and consistency
+- Fixed inconsistency in total issue count by properly handling status values
+- Added sequential ID system alongside UUIDs for better issue tracking
+- Standardized status field options to five canonical values
+- Implemented status-based filtering when clicking status summary tiles
+- Added microanimations for smoother transitions between filtered views
+- Updated category highlighting logic for status-filtered views
+- Fixed "Show More/Less" functionality in the IssueCard component
+- Simplified comment section by leveraging profile context
+
+### 2025-05-09T23:49:46.963-04:00 | Archive Functionality Implementation
+- Added `archived_at` column to the issues table
+- Updated issue service to store timestamp when archiving an issue
+- Modified issue filtering to exclude archived issues from standard views
+- Created special handling for archived status in filter dropdown
+- Enhanced database queries to properly handle archived vs. active issues
+- Updated UI to ensure archived issues only appear when explicitly filtered
+- Added data migration to set archived_at for existing archived issues
+- Implemented unit tests to verify archive functionality behavior
+
+### 2025-05-10T00:15:32.123-04:00 | Archive Functionality Fixes
+- Fixed issue with archived issues not appearing when explicitly filtered
+- Simplified status filtering logic to use direct database queries by status
+- Improved archive status handling in IssueList component
+- Added more robust error handling and logging for archive functionality
+- Enhanced fetchIssuesByStatus function to properly handle all status types
+- Improved type safety for status filtering in React components
+- Fixed edge cases with IssueList component state management for archived issues

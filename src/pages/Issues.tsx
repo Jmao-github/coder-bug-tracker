@@ -33,27 +33,27 @@ const Issues: React.FC = () => {
   });
   const [totalIssueCount, setTotalIssueCount] = useState<number>(0);
 
-  // Fetch all issues for counting - with improved configuration
-  const { data: allIssues = [], error: issuesError, isLoading: issuesLoading } = useQuery({
-    queryKey: ['issues'],
+  // Get all issues for status and segment counting
+  const { data: allIssues = [], isLoading, isSuccess } = useQuery({
+    queryKey: ['all-issues'],
     queryFn: async () => {
       try {
-        const data = await fetchIssues();
-        console.log('Successfully fetched', data.length, 'issues for counting');
-        // Update the total count immediately when data is fetched
-        setTotalIssueCount(data.length);
-        return data;
+        // Always include archived issues for counting total issues
+        // This ensures the total count is always accurate
+        const issues = await fetchIssues(true);
+        
+        console.log(`Fetched ${issues.length} total issues for counting`);
+        return issues;
       } catch (error) {
-        console.error('Error fetching issues:', error);
-        toast.error('Failed to load issues. Matrix cards may show incorrect counts.');
-        throw error;
+        console.error('Error fetching all issues:', error);
+        return [];
       }
     },
     staleTime: 1000 * 60, // 1 minute
     retry: 2,
-    refetchOnWindowFocus: true, // Refetch when window regains focus
-    refetchOnMount: true,      // Refetch when component mounts
-    refetchOnReconnect: true,  // Refetch when reconnecting
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
 
   // Direct segment count query - Always fetch as a parallel source of truth
@@ -111,14 +111,12 @@ const Issues: React.FC = () => {
       console.log('Direct count query successful, updating counts:', directCounts);
       setSegmentCounts(directCounts);
       
-      // Update total count if it's still 0 but we have direct counts
+      // Always update total count from direct counts
       const directTotal = Object.values(directCounts).reduce((sum, count) => sum + count, 0);
-      if (directTotal > 0 && totalIssueCount === 0) {
-        console.log('Updating total count from direct counts:', directTotal);
-        setTotalIssueCount(directTotal);
-      }
+      console.log('Updating total count from direct counts:', directTotal);
+      setTotalIssueCount(directTotal);
     }
-  }, [directCountSuccess, directCounts, totalIssueCount]);
+  }, [directCountSuccess, directCounts]);
 
   // Handle direct status count success
   useEffect(() => {
@@ -179,10 +177,9 @@ const Issues: React.FC = () => {
     
     console.log('Updating segment counts with', allIssues.length, 'issues');
     
-    // Update total count if needed
-    if (totalIssueCount !== allIssues.length) {
-      setTotalIssueCount(allIssues.length);
-    }
+    // Always update total count to match allIssues length
+    // This ensures total count is consistent regardless of filters
+    setTotalIssueCount(allIssues.length);
     
     const counts: Record<string, number> = {
       auth: 0,

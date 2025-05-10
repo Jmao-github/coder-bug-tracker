@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import NewIssueDialog from './NewIssueDialog';
-import { fetchIssues, fetchIssuesBySegment, updateIssueStatus } from '@/services/issueService';
+import { fetchIssues, fetchIssuesBySegment, fetchIssuesByStatus, updateIssueStatus } from '@/services/issueService';
 import { Issue } from '@/types/issueTypes';
 import { useProfile } from './ProfileContext';
 import { toast } from 'sonner';
@@ -61,14 +61,37 @@ const IssueList: React.FC<IssueListProps> = ({
     }
   }, []);
 
-  // Query issues data - direct query by segment with no special cases
+  // Determine the effective status filter from the dropdown or the activeStatus prop
+  const effectiveStatusFilter = activeStatus || 
+    (statusFilter !== 'all' && isIssueStatus(statusFilter) ? statusFilter : null);
+  
+  // Query issues data - using the appropriate fetch method based on active filters
   const { data: issues = [], isLoading } = useQuery({
-    queryKey: ['issues', activeSegment],
+    queryKey: ['issues', activeSegment, effectiveStatusFilter],
     queryFn: async () => {
-      console.log(`Fetching issues with activeSegment: "${activeSegment}"`);
+      console.log(`Fetching issues with activeSegment: "${activeSegment}", effectiveStatusFilter: "${effectiveStatusFilter}"`);
       
-      // Standard fetching using segment ID
-      const result = activeSegment ? await fetchIssuesBySegment(activeSegment) : await fetchIssues();
+      // If filtering by status, use the status-specific fetch method
+      if (effectiveStatusFilter) {
+        console.log(`Using status filter method with status: ${effectiveStatusFilter}`);
+        const statusIssues = await fetchIssuesByStatus(effectiveStatusFilter);
+        
+        // If also filtering by segment, apply that filter in memory
+        if (activeSegment) {
+          const filteredBySegment = statusIssues.filter(issue => issue.segment === activeSegment);
+          console.log(`Filtered by segment ${activeSegment}: ${filteredBySegment.length} issues`);
+          return filteredBySegment;
+        }
+        
+        console.log(`Fetched ${statusIssues.length} issues with status ${effectiveStatusFilter}`);
+        return statusIssues;
+      }
+      
+      // Otherwise fetch by segment or all issues
+      const result = activeSegment ? 
+        await fetchIssuesBySegment(activeSegment) : 
+        await fetchIssues();
+      
       console.log(`Standard fetch: retrieved ${result.length} issues${activeSegment ? ` for segment "${activeSegment}"` : ' (all segments)'}`);
       
       return result;
@@ -106,33 +129,11 @@ const IssueList: React.FC<IssueListProps> = ({
     setStatusFilter(newFilter);
   };
 
-  // Update the filterIssues function to handle status types safely
+  // Filter issues from the loaded data based on current filters
   const filterIssues = () => {
     let result = [...issues];
     
-    // Apply segment filtering if applicable
-    if (activeSegment) {
-      console.log(`Filtering by segment: ${activeSegment}`);
-      result = result.filter(issue => issue.segment === activeSegment);
-    }
-    
-    // Apply status filtering from activeStatus or dropdown
-    if (activeStatus) {
-      // Use the activeStatus prop as the primary filter
-      console.log(`Filtering by active status: ${activeStatus}`);
-      result = result.filter(issue => issue.status === activeStatus);
-    } else if (statusFilter !== 'all') {
-      // Use the dropdown filter as fallback
-      // Note: There's a type mismatch here that should be addressed in a more comprehensive refactor
-      // The issue is that statusFilter is a string but issue.status needs to be IssueStatus
-      // A proper fix would involve using a common type system throughout the application
-      result = result.filter(issue => {
-        // @ts-ignore: Type mismatch between string and IssueStatus
-        return issue.status === statusFilter;
-      });
-    }
-    
-    // Apply search filtering
+    // Apply search filtering only - the segment and status filtering is handled at query time
     if (searchTerm) {
       const lowerSearchTerm = searchTerm.toLowerCase();
       result = result.filter(issue => 
@@ -142,6 +143,7 @@ const IssueList: React.FC<IssueListProps> = ({
       );
     }
     
+    console.log(`Filter results: ${result.length} issues after filtering`);
     return result;
   };
 
@@ -181,6 +183,11 @@ const IssueList: React.FC<IssueListProps> = ({
 
   // Update the status filter handler to handle types safely
   const handleStatusFilterChange = (status: string) => {
+    console.log(`Status filter changed to: ${status}`);
+    
+    // When changing status filter, invalidate the queries to ensure fresh data
+    queryClient.invalidateQueries({ queryKey: ['issues'] });
+    
     setStatusFilter(status);
   };
 

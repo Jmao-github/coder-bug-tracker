@@ -6,12 +6,19 @@ import { toast } from "sonner";
 type IssueStatus = 'waiting_for_help' | 'in_progress' | 'resolved' | 'blocked' | 'archived';
 
 // Issues
-export const fetchIssues = async () => {
+export const fetchIssues = async (includeArchived: boolean = false) => {
   // Simple fetch of all issues
-  const { data, error } = await supabase
+  let query = supabase
     .from('issues')
     .select('*')
     .order('created_at', { ascending: false });
+
+  // Exclude archived issues by default unless specifically requested
+  if (!includeArchived) {
+    query = query.neq('status', 'archived');
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching issues from Supabase:', error);
@@ -23,14 +30,21 @@ export const fetchIssues = async () => {
   return (data || []) as Issue[];
 };
 
-export const fetchIssuesBySegment = async (segment: string) => {
+export const fetchIssuesBySegment = async (segment: string, includeArchived: boolean = false) => {
   console.log(`Fetching issues for segment: "${segment}"`);
   
-  const { data, error } = await supabase
+  let query = supabase
     .from('issues')
     .select('*')
     .eq('segment', segment)
     .order('created_at', { ascending: false });
+
+  // Exclude archived issues by default unless specifically requested
+  if (!includeArchived) {
+    query = query.neq('status', 'archived');
+  }
+    
+  const { data, error } = await query;
     
   if (error) {
     console.error(`Failed to load ${segment} issues:`, error);
@@ -43,18 +57,33 @@ export const fetchIssuesBySegment = async (segment: string) => {
 };
 
 export const fetchIssuesByStatus = async (status: string) => {
-  const { data, error } = await supabase
-    .from('issues')
-    .select('*')
-    .eq('status', status)
-    .order('created_at', { ascending: false });
-    
-  if (error) {
-    toast.error(`Failed to load ${status} issues`);
-    throw error;
+  console.log(`Fetching issues by status: ${status}`);
+  
+  if (!status) {
+    console.error('No status provided to fetchIssuesByStatus');
+    return [];
   }
   
-  return data as Issue[];
+  try {
+    const { data, error } = await supabase
+      .from('issues')
+      .select('*')
+      .eq('status', status)
+      .order('created_at', { ascending: false });
+      
+    if (error) {
+      console.error(`Error fetching issues with status ${status}:`, error);
+      toast.error(`Failed to load ${status} issues`);
+      throw error;
+    }
+    
+    console.log(`Successfully fetched ${data?.length || 0} issues with status ${status}`);
+    return data as Issue[];
+  } catch (error) {
+    console.error('Error in fetchIssuesByStatus:', error);
+    toast.error(`Failed to load ${status} issues`);
+    return [];
+  }
 };
 
 export const createIssue = async (issue: NewIssue) => {
@@ -120,10 +149,18 @@ export const updateIssueStatus = async (
     if (status === 'resolved' && resolvedBy) {
       updateData.resolved_by = resolvedBy;
       updateData.resolved_at = new Date().toISOString();
-    } else if (status !== 'resolved') {
+      // Clear archived information when resolving
+      updateData.archived_at = null;
+    } else if (status === 'archived') {
+      // Set archived_at timestamp when archiving
+      updateData.archived_at = new Date().toISOString();
+      // Keep resolved information if it exists
+    } else {
       // Clear resolved information if changing to a non-resolved status
       updateData.resolved_by = null;
       updateData.resolved_at = null;
+      // Clear archived information for other statuses
+      updateData.archived_at = null;
     }
     
     console.log('Updating issue status with data:', updateData);
@@ -203,6 +240,7 @@ export const fetchIssueCountsBySegment = async () => {
   
   try {
     // Get counts for each segment directly from Supabase
+    // Do not filter by status to ensure consistent total counts
     const authCountQuery = await supabase
       .from('issues')
       .select('id', { count: 'exact', head: true })
@@ -316,4 +354,23 @@ export const fetchIssueCountsByStatus = async () => {
       archived: 0
     };
   }
+};
+
+// Debug function to check archived issues
+export const debugFetchArchivedIssues = async () => {
+  console.log('Debug: Directly fetching archived issues');
+  
+  const { data, error } = await supabase
+    .from('issues')
+    .select('*')
+    .eq('status', 'archived')
+    .order('created_at', { ascending: false });
+    
+  if (error) {
+    console.error('Debug: Error fetching archived issues:', error);
+    return [];
+  }
+  
+  console.log(`Debug: Found ${data?.length || 0} archived issues:`, data);
+  return data as Issue[];
 };

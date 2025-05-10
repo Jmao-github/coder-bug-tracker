@@ -31,6 +31,14 @@ Contains all project documentation, task lists, and meeting notes.
 ### `src/components/`
 React components organized by function. UI components are separated into `ui/` subdirectory.
 
+**Key Components:**
+- `IssueCard` - Displays individual issue with details and "Show More/Less" functionality
+- `IssueList` - Main container for issue display with filtering and sorting
+- `IssueGridView` - Grid layout for displaying issues by category
+- `StatusSelector` - Dropdown for changing issue status with standardized options
+- `CommentSection` - Interface for adding and viewing comments on issues
+- `StatusTiles` - Interactive tiles displaying issue counts by status
+
 ### `src/integrations/supabase/`
 Contains Supabase client configuration and database types.
 
@@ -42,6 +50,12 @@ API service modules for backend communication.
 
 ### `src/types/`
 TypeScript type definitions for the application.
+
+**Key Types:**
+- `Issue` - Core issue data structure with UUID and sequential ID
+- `Comment` - Structure for issue comments
+- `Segment` - Enumeration of issue categories (Auth, Code, Tool, Misc)
+- `IssueStatus` - Standardized status options (waiting_for_help, pending, resolved, blocked, archived)
 
 ## File Placement Guidelines
 

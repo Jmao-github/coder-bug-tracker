@@ -1,7 +1,8 @@
 import React from 'react';
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, CheckSquare, XSquare, Archive, HelpCircle } from "lucide-react";
+import { Clock, CheckSquare, XSquare, Archive, HelpCircle, X } from "lucide-react";
 import { motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 
 // Define the status types
 type IssueStatus = 'waiting_for_help' | 'in_progress' | 'resolved' | 'blocked' | 'archived';
@@ -69,58 +70,77 @@ const StatusTiles: React.FC<StatusTilesProps> = ({
   
   // Function to handle status tile click
   const handleStatusClick = (status: IssueStatus) => {
-    // If the status is already active, clear the filter
-    if (activeStatus === status) {
-      onStatusChange(null);
-    } else {
+    // If the status is not already active, set it
+    if (activeStatus !== status) {
       onStatusChange(status);
     }
+    // If status is already active, do nothing (no toggle)
+  };
+
+  // Function to clear the active filter
+  const clearFilter = () => {
+    onStatusChange(null);
   };
   
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
-      {Object.entries(STATUS_CONFIG).map(([status, config]) => {
-        const count = statusCounts[status as IssueStatus] || 0;
-        const isActive = activeStatus === status;
-        const percentage = totalIssues > 0 ? Math.round((count / totalIssues) * 100) : 0;
-        
-        return (
-          <Card 
-            key={status}
-            className={`
-              cursor-pointer transition-all duration-300 overflow-hidden
-              ${isActive 
-                ? `border-2 ${config.color} shadow-md` 
-                : 'border border-gray-200 opacity-80'
-              }
-              ${config.bgColor} ${config.hoverColor}
-            `}
-            onClick={() => handleStatusClick(status as IssueStatus)}
-          >
-            <CardContent className="p-3 flex flex-col items-center text-center">
-              <div className={`${config.color} mt-1`}>
-                {config.icon}
-              </div>
-              <motion.div
-                key={`${status}-${count}`}
-                initial={{ scale: 0.8, opacity: 0.5 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="text-xl font-bold mt-1"
-              >
-                {count}
-              </motion.div>
-              <div className="text-xs mt-1">
-                {config.label}
-              </div>
-              {totalIssues > 0 && (
-                <div className={`text-xs mt-1 ${config.color}`}>
-                  {percentage}%
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+        {Object.entries(STATUS_CONFIG).map(([status, config]) => {
+          const count = statusCounts[status as IssueStatus] || 0;
+          const isActive = activeStatus === status;
+          const percentage = totalIssues > 0 ? Math.round((count / totalIssues) * 100) : 0;
+          
+          return (
+            <Card 
+              key={status}
+              className={`
+                cursor-pointer transition-all duration-300 overflow-hidden
+                ${isActive 
+                  ? `border-2 ${config.color} shadow-md` 
+                  : 'border border-gray-200 opacity-80'
+                }
+                ${config.bgColor} ${config.hoverColor}
+              `}
+              onClick={() => handleStatusClick(status as IssueStatus)}
+            >
+              <CardContent className="p-3 flex flex-col items-center text-center">
+                <div className={`${config.color} mt-1`}>
+                  {config.icon}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })}
+                <motion.div
+                  key={`${status}-${count}`}
+                  initial={{ scale: 0.8, opacity: 0.5 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-xl font-bold mt-1"
+                >
+                  {count}
+                </motion.div>
+                <div className="text-xs mt-1">
+                  {config.label}
+                </div>
+                {totalIssues > 0 && (
+                  <div className={`text-xs mt-1 ${config.color}`}>
+                    {percentage}%
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+      
+      {activeStatus && (
+        <div className="flex justify-center">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={clearFilter}
+            className="text-xs flex items-center gap-1"
+          >
+            <X className="h-3 w-3" /> Clear Filter
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

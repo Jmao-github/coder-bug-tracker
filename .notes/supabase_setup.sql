@@ -26,7 +26,16 @@ BEGIN
   END IF;
 END$$;
 
--- Step 3: Create issue_activity_log view
+-- Step 3: Add archived_at column to issues table
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'issues' AND column_name = 'archived_at') THEN
+    ALTER TABLE public.issues ADD COLUMN archived_at TIMESTAMP WITH TIME ZONE;
+  END IF;
+END$$;
+
+-- Step 4: Create issue_activity_log view
 CREATE OR REPLACE VIEW public.issue_activity_log AS
 SELECT
   i.id,
@@ -71,7 +80,7 @@ FROM
 
 COMMENT ON VIEW public.issue_activity_log IS 'Shows which team member handled each issue, when, and how';
 
--- Step 4: Setup RLS policies (if needed)
+-- Step 5: Setup RLS policies (if needed)
 ALTER TABLE public.user_sessions ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public access to user_sessions" ON public.user_sessions FOR ALL USING (true);
 

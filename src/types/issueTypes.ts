@@ -13,6 +13,7 @@ export type Issue = {
   updated_at: string;
   resolved_by?: string;
   resolved_at?: string;
+  archived_at?: string;
   affected_user_name?: string;
   affected_user_email?: string;
 }
