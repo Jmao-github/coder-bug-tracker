@@ -211,10 +211,10 @@ const IssueList: React.FC<IssueListProps> = ({
                     key={issue.id}
                     id={issue.id}
                     seq_id={issue.seq_id}
-                    title={issue.title}
-                    description={issue.description}
+                    title={issue.title || 'Untitled Issue'}
+                    description={issue.description || ''}
                     reporter={{
-                      name: issue.submitted_by,
+                      name: issue.submitted_by || 'Unknown',
                       email: undefined
                     }}
                     dateReported={new Date(issue.created_at).toLocaleString('en-US', {
@@ -226,7 +226,7 @@ const IssueList: React.FC<IssueListProps> = ({
                       hour12: true
                     })}
                     status={issue.status as any}
-                    tags={issue.tags}
+                    tags={issue.tags || []}
                     index={index}
                     onStatusChange={handleStatusChange}
                   />

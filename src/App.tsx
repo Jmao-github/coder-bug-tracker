@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Issues from "./pages/Issues";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 import { ProfileProvider } from "@/components/ProfileContext";
 import ProfileSelector from "@/components/ProfileSelector";
@@ -37,6 +38,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/issues" element={<Issues />} />
                 <Route path="/issues/:segment" element={<Issues />} />
+                <Route path="/admin" element={<Admin />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

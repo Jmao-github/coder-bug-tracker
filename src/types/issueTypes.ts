@@ -16,6 +16,7 @@ export type Issue = {
   archived_at?: string;
   affected_user_name?: string;
   affected_user_email?: string;
+  is_test?: boolean; // Flag to identify test issues that can be safely deleted
 }
 
 export type Comment = {
@@ -36,6 +37,7 @@ export type NewIssue = {
   assigned_to: string | null;
   affected_user_name?: string;
   affected_user_email?: string;
+  is_test?: boolean; // Flag to identify test issues for easy deletion
 }
 
 export type NewComment = Omit<Comment, 'id' | 'created_at'>;

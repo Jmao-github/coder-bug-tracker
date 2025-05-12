@@ -71,8 +71,11 @@ const IssueCard: React.FC<IssueCardProps> = ({
   index,
   onStatusChange
 }) => {
+  // Add a safety check for null or undefined description
+  const safeDescription = description || '';
+  
   const [isExpanded, setIsExpanded] = useState(false);
-  const [shouldTruncate, setShouldTruncate] = useState(description.length > DESCRIPTION_THRESHOLD);
+  const [shouldTruncate, setShouldTruncate] = useState(safeDescription.length > DESCRIPTION_THRESHOLD);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -119,10 +122,10 @@ const IssueCard: React.FC<IssueCardProps> = ({
     setIsExpanded(true);
   };
 
-  // Get truncated and full versions of the description
+  // Get truncated and full versions of the description - use safeDescription instead
   const truncatedDescription = shouldTruncate 
-    ? description.substring(0, DESCRIPTION_THRESHOLD) + '...' 
-    : description;
+    ? safeDescription.substring(0, DESCRIPTION_THRESHOLD) + '...' 
+    : safeDescription;
   
   return (
     <div className="issue-card-container">
@@ -164,7 +167,7 @@ const IssueCard: React.FC<IssueCardProps> = ({
           <Collapsible open={isExpanded} onOpenChange={setIsExpanded} className="space-y-4">
             <div className="space-y-4">
               <div className="text-sm leading-relaxed text-secondary whitespace-pre-line">
-                {isExpanded ? description : truncatedDescription}
+                {isExpanded ? safeDescription : truncatedDescription}
               </div>
             </div>
             
