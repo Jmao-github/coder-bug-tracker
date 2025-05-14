@@ -1,0 +1,92 @@
+{
+    "Type": "single",
+    "Parent_Message": {
+      "chat_thread_id": 154643618,
+      "message_id": 154643618,
+      "parent_id": null,
+      "chat_room_uuid": "3e1d817b-f671-4507-ba05-86acca9e4e56",
+      "space_name": "General chat",
+      "sender": "Diego Armas Morales",
+      "created_at": "2025-05-12T19:21:24.409Z",
+      "edited_at": null,
+      "body": "Jason's[10xCoder.dev](http://10xcoder.dev/)streamlines the process for making an app by integrating Supabase, Stripe, Google Authentication and other components. Once integrated into Cursor, VS code or whatever's used, the next step would be running Taskmaster to dial in what needs to occur to minimize token consumption, hallucinations, etc. From there - just vibes.\n\nI'm curious if[Codeguide.dev](http://codeguide.dev/)has a role in this proposed workflow or not really? I can see its strength is in documentation (if you're delivering client projects) and it appears it can understand other tools when building the documentation for building an app (think Windsurf, Cursor, and other tools) depending on your use case.",
+      "attachments": [],
+      "message_url": "https://community.aibuilderclub.com/c/general-chat/#message_154643618",
+      "has_replies": false,
+      "replies_count": 0
+    },
+    "Replies": [],
+    "Issue_Details": {
+      "is_issue": true,
+      "issue_title": "Question about Codeguide.dev in workflow",
+      "type": "Tool",
+      "reasoning": "Message contains a question about the role of Codeguide.dev in a workflow."
+    }
+  }
+
+
+  {
+    "Type": "thread",
+    "Parent_Message": {
+      "chat_thread_id": 1000950089,
+      "message_id": 152061733,
+      "parent_id": null,
+      "chat_room_uuid": "3e1d817b-f671-4507-ba05-86acca9e4e56",
+      "space_name": "General chat",
+      "parent_sender": "Diego Armas Morales",
+      "created_at": "2025-05-02T13:39:12.888Z",
+      "edited_at": null,
+      "parent_body": "Great to be in the new AI Builder Club! If I wanted to create chrome extensions, would using the[10xcoder.dev](http://10xcoder.dev/)--> Taskmaster workflow using Cursor/Windsurf work? Or would there be a different process to it all?",
+      "parent_attachments": [],
+      "message_url": "https://community.aibuilderclub.com/c/general-chat/#message_152061733",
+      "has_replies": true,
+      "replies_count": 3
+    },
+    "Replies": [
+      {
+        "reply_index": 1,
+        "chat_thread_id": 1000950089,
+        "message_id": 152120829,
+        "parent_id": 152061733,
+        "chat_room_uuid": "3e1d817b-f671-4507-ba05-86acca9e4e56",
+        "replier 1": "Jaye Mao",
+        "created_at": "2025-05-02T16:39:53.638Z",
+        "edited_at": null,
+        "body": "Hi Diego, It's Jaye. I’m not from a dev/engineering background, but I’ve built 3 Chrome extensions using Cursor—without relying on[a10coder.dev](http://a10coder.dev/)or Taskmaster—by writing clear PRDs with defined workflows and scope limits. I usually break down how I’d achieve it manually, what pages the extension would support, or include reference extensions/docs aligned with the goal.\n\nWith that context, I just ask for a test/sample mode to validate functionality. If it works, I can usually build and tweak a solid version in under 2 hours—good enough for daily use, though not for public deployment. I’ve shared details on two of them here already.\n\nThat’s just my approach—if you can clarify your challenge, the community can likely offer more targeted help.",
+        "attachments": [],
+        "message_url": "https://community.aibuilderclub.com/c/general-chat/?message_id=152120829#message_152061733"
+      },
+      {
+        "reply_index": 2,
+        "chat_thread_id": 1000950089,
+        "message_id": 153382191,
+        "parent_id": 152061733,
+        "chat_room_uuid": "3e1d817b-f671-4507-ba05-86acca9e4e56",
+        "replier 2": "Diego Armas Morales",
+        "created_at": "2025-05-06T18:27:35.089Z",
+        "edited_at": null,
+        "body": "Interesting, thank you for sharing this Jaye. What would you need for public deployment in this case?",
+        "attachments": [],
+        "message_url": "https://community.aibuilderclub.com/c/general-chat/?message_id=153382191#message_152061733"
+      },
+      {
+        "reply_index": 3,
+        "chat_thread_id": 1000950089,
+        "message_id": 153389380,
+        "parent_id": 152061733,
+        "chat_room_uuid": "3e1d817b-f671-4507-ba05-86acca9e4e56",
+        "replier 3": "Jaye Mao",
+        "created_at": "2025-05-06T19:13:13.058Z",
+        "edited_at": null,
+        "body": "i have not implemented that, from my roadmap, it might include:\n\nUI polish: might have options page for individuals settings & payments, links button to web page (depends on your case - think it as a product)\n\nStorage: Use chrome.storage instead of local state for persistence.\n\nError handling: Add try/catch blocks and user alerts if something fails. Manually test in Incognito mode and on fresh profiles",
+        "attachments": [],
+        "message_url": "https://community.aibuilderclub.com/c/general-chat/?message_id=153389380#message_152061733"
+      }
+    ],
+    "Issue_Details": {
+      "is_issue": true,
+      "issue_title": "Chrome extension building process with 10xCoder.dev",
+      "type": "Tool",
+      "reasoning": "The message asks about using a premium tool 10xCoder.dev for building Chrome extensions."
+    }
+  }

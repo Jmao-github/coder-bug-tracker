@@ -397,3 +397,16 @@
 **Status Update:**
 - Task "Implement Circle.so data integration pipeline" → 🚧 In-Progress (needs attention)
 - Task "Create database schema for circle_issues" → 🚧 In-Progress (needs revision)
+
+### 2025-05-14T15:47:26.737-04:00 | Schema & Circle.so Integration Finalization
+- **Decision**: Marked all schema, migration, and Circle.so integration tasks as completed. The database is now production-ready, fully normalized, and matches all n8n webhook and frontend contract requirements. Legacy/unused fields and tables have been removed.
+- **Rationale**: Ensures a lean, maintainable, and future-proof schema that supports all current product and integration needs without legacy bloat.
+- **Implementation Summary**:
+  1. Dropped all redundant/legacy tables and fields, including unused blobs and Circle message tables.
+  2. Normalized Circle.so integration: all messages and replies are mapped to `circle_issues` and `circle_replies` (if present), with direct linkage to `issues`.
+  3. Added/cleaned columns to match n8n webhook structure and frontend contract.
+  4. Added parent_id to comments for threading, and removed unused fields from all tables.
+  5. Optimized indexes and updated RLS policies for security and performance.
+  6. Created and validated robust webhook processing and upsert logic for Circle.so payloads.
+  7. Ran tests with actual payloads to confirm schema and logic correctness.
+- **Next Steps**: Move to new features and deeper analytics, as the core data pipeline and schema are now stable and production-ready.
