@@ -18,6 +18,7 @@ export const PROFILES: Profile[] = [
 // Context type
 interface ProfileContextType {
   activeProfile: Profile | null;
+  profile: Profile | null; // Alias for activeProfile for backward compatibility
   setActiveProfile: (profile: Profile) => void;
   showProfileSelector: boolean;
   setShowProfileSelector: (show: boolean) => void;
@@ -76,6 +77,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   return (
     <ProfileContext.Provider value={{
       activeProfile,
+      profile: activeProfile, // Add the alias
       setActiveProfile,
       showProfileSelector,
       setShowProfileSelector

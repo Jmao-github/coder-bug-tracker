@@ -10,7 +10,7 @@ interface IssueStatsProps {
 
 const IssueStats: React.FC<IssueStatsProps> = ({ counts, filteredCount }) => {
   // Calculate total issues across all segments
-  const totalIssues = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  const totalIssues = Object.values(counts || {}).reduce((sum, count) => sum + count, 0);
   
   // Calculate percentage change (dummy values for demo)
   const changePercentage = totalIssues > 0 ? 12.5 : 0; // In a real app, this would be calculated from historical data
@@ -30,6 +30,7 @@ const IssueStats: React.FC<IssueStatsProps> = ({ counts, filteredCount }) => {
             key={totalIssues}
             initial={{ scale: 0.8, opacity: 0.5 }}
             animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.3 }}
             className="text-xl font-bold"
           >
             {totalIssues}

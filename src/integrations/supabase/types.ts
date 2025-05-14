@@ -1,3 +1,46 @@
+import { createClient } from '@supabase/supabase-js';
+
+export interface CircleIssueRow {
+  id: string;
+  message_id: string;
+  thread_id: string | null;
+  title: string;
+  body: string;
+  author_name: string;
+  author_email: string | null;
+  space_name: string | null;
+  space_id: string | null;
+  link: string | null;
+  is_thread: boolean;
+  is_triaged: boolean;
+  triage_confidence: number;
+  raw_data: any | null;
+  mapped_to_issue_id: string | null;
+  created_at: string;
+  imported_at: string;
+  last_updated_at: string | null;
+}
+
+export interface IssueImportLogRow {
+  id: string;
+  circle_issue_id: string;
+  issue_id: string;
+  imported_by: string;
+  import_source: string;
+  import_notes: string | null;
+  is_automatic: boolean;
+  imported_at: string;
+}
+
+export interface CircleSpaceRow {
+  id: number;
+  space_id: number;
+  space_name: string;
+  chat_room_uuid: string;
+  space_member_id: number | null;
+  created_at: string;
+}
+
 export type Json =
   | string
   | number
@@ -6,286 +49,126 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
+export interface Database {
   public: {
     Tables: {
-      comments: {
-        Row: {
-          author_name: string
-          body: string
-          created_at: string
-          id: string
-          issue_id: string
-        }
-        Insert: {
-          author_name: string
-          body: string
-          created_at?: string
-          id?: string
-          issue_id: string
-        }
-        Update: {
-          author_name?: string
-          body?: string
-          created_at?: string
-          id?: string
-          issue_id?: string
-        }
+      circle_issues: {
+        Row: CircleIssueRow;
+        Insert: Omit<CircleIssueRow, 'id' | 'created_at' | 'imported_at' | 'last_updated_at'> & {
+          id?: string;
+          created_at?: string;
+          imported_at?: string;
+          last_updated_at?: string;
+        };
+        Update: Partial<Omit<CircleIssueRow, 'id' | 'created_at'>>;
         Relationships: [
           {
-            foreignKeyName: "comments_issue_id_fkey"
-            columns: ["issue_id"]
-            isOneToOne: false
-            referencedRelation: "issues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      issue_status_logs: {
-        Row: {
-          changed_at: string
-          changed_by: string | null
-          id: string
-          issue_id: string
-          new_status: string
-          old_status: string
-        }
-        Insert: {
-          changed_at?: string
-          changed_by?: string | null
-          id?: string
-          issue_id: string
-          new_status: string
-          old_status: string
-        }
-        Update: {
-          changed_at?: string
-          changed_by?: string | null
-          id?: string
-          issue_id?: string
-          new_status?: string
-          old_status?: string
-        }
+            foreignKeyName: "circle_issues_mapped_to_issue_id_fkey";
+            columns: ["mapped_to_issue_id"];
+            referencedRelation: "issues";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      issue_import_logs: {
+        Row: IssueImportLogRow;
+        Insert: Omit<IssueImportLogRow, 'id' | 'imported_at'> & {
+          id?: string;
+          imported_at?: string;
+        };
+        Update: Partial<Omit<IssueImportLogRow, 'id' | 'imported_at'>>;
         Relationships: [
           {
-            foreignKeyName: "issue_status_logs_issue_id_fkey"
-            columns: ["issue_id"]
-            isOneToOne: false
-            referencedRelation: "issues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      issue_tags: {
-        Row: {
-          issue_id: string
-          tag_name: string
-        }
-        Insert: {
-          issue_id: string
-          tag_name: string
-        }
-        Update: {
-          issue_id?: string
-          tag_name?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "issue_tags_issue_id_fkey"
-            columns: ["issue_id"]
-            isOneToOne: false
-            referencedRelation: "issues"
-            referencedColumns: ["id"]
+            foreignKeyName: "issue_import_logs_circle_issue_id_fkey";
+            columns: ["circle_issue_id"];
+            referencedRelation: "circle_issues";
+            referencedColumns: ["id"];
           },
           {
-            foreignKeyName: "issue_tags_tag_name_fkey"
-            columns: ["tag_name"]
-            isOneToOne: false
-            referencedRelation: "tags"
-            referencedColumns: ["name"]
-          },
-        ]
-      }
+            foreignKeyName: "issue_import_logs_issue_id_fkey";
+            columns: ["issue_id"];
+            referencedRelation: "issues";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      circle_spaces: {
+        Row: CircleSpaceRow;
+        Insert: Omit<CircleSpaceRow, 'id' | 'created_at'> & {
+          id?: number;
+          created_at?: string;
+        };
+        Update: Partial<Omit<CircleSpaceRow, 'id' | 'created_at'>>;
+        Relationships: [];
+      };
+      // Include existing tables but with just basic type info to prevent conflicts
       issues: {
-        Row: {
-          assigned_to: string | null
-          created_at: string
-          description: string | null
-          id: string
-          ready_for_delivery: boolean | null
-          segment: string
-          status: string
-          submitted_by: string
-          tags: string[]
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          assigned_to?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          ready_for_delivery?: boolean | null
-          segment?: string
-          status?: string
-          submitted_by: string
-          tags?: string[]
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          assigned_to?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          ready_for_delivery?: boolean | null
-          segment?: string
-          status?: string
-          submitted_by?: string
-          tags?: string[]
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
+        Row: Record<string, any>;
+        Insert: Record<string, any>;
+        Update: Record<string, any>;
+        Relationships: [];
+      };
+      comments: {
+        Row: Record<string, any>;
+        Insert: Record<string, any>;
+        Update: Record<string, any>;
+        Relationships: [];
+      };
+      issue_status_logs: {
+        Row: Record<string, any>;
+        Insert: Record<string, any>;
+        Update: Record<string, any>;
+        Relationships: [];
+      };
+      issue_tags: {
+        Row: Record<string, any>;
+        Insert: Record<string, any>;
+        Update: Record<string, any>;
+        Relationships: [];
+      };
       tags: {
-        Row: {
-          created_at: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          name?: string
-        }
-        Relationships: []
-      }
-    }
-    Views: {
-      [_ in never]: never
-    }
+        Row: Record<string, any>;
+        Insert: Record<string, any>;
+        Update: Record<string, any>;
+        Relationships: [];
+      };
+    };
     Functions: {
+      upsert_circle_issue: {
+        Args: {
+          p_message_id: string;
+          p_thread_id: string | null;
+          p_title: string;
+          p_body: string;
+          p_author_name: string;
+          p_author_email: string | null;
+          p_space_name: string | null;
+          p_space_id: string | null;
+          p_link: string | null;
+          p_is_thread: boolean;
+          p_is_triaged: boolean;
+          p_triage_confidence: number;
+          p_raw_data: any | null;
+        };
+        Returns: string;
+      };
       determine_segment: {
-        Args: { tags: string[] }
-        Returns: string
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
+        Args: {
+          title: string;
+          body: string;
+        };
+        Returns: 'auth' | 'code' | 'tool' | 'misc';
+      };
+    };
+    Views: {
+      issue_activity_log: {
+        Row: Record<string, any>;
+      };
+    };
+    Enums: {};
+    CompositeTypes: {};
+  };
 }
-
-type DefaultSchema = Database[Extract<keyof Database, "public">]
-
-export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof Database },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
-      Row: infer R
-    }
-    ? R
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
-
-export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
-
-export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
-
-export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof Database },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof Database },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
-  }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
 
 export const Constants = {
   public: {

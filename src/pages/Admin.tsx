@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Issue } from '@/types/issueTypes';
 import { useProfile } from '@/components/ProfileContext';
-import { CircleIssue } from '@/services/circleService';
+import { CircleMessage, syncCircleMessagesFromN8n, SyncResult, createIssueFromCircleMessage, processWebhookData } from '@/services/circleService';
+import WebhookTester from '@/components/WebhookTester';
+import CircleMockData from '@/components/CircleMockData';
+import FileUploader from '@/components/FileUploader';
+import { initStorage, ensureAttachmentsColumn } from '@/services/storageService';
+import AttachmentViewer from '@/components/AttachmentViewer';
+import { useNavigate } from 'react-router-dom';
 
 // Define types for mutations and queries
 type DeleteResult = {
@@ -29,8 +35,10 @@ type MarkResult = {
 
 const Admin: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null); 
   const queryClient = useQueryClient();
   const { profile } = useProfile();
+  const navigate = useNavigate();
   
   // State for Circle Import
   const [messageId, setMessageId] = useState('');
@@ -42,7 +50,28 @@ const Admin: React.FC = () => {
   const [spaceId, setSpaceId] = useState('');
   const [spaceName, setSpaceName] = useState('');
   const [link, setLink] = useState('');
+  const [attachments, setAttachments] = useState<string[]>([]);
   
+  // Initialize storage when component mounts
+  useEffect(() => {
+    // Initialize storage bucket
+    initStorage().then(success => {
+      if (success) {
+        console.log('Storage initialized successfully');
+        
+        // Then ensure the circle_issues table has the attachments column
+        ensureAttachmentsColumn().then(columnSuccess => {
+          if (columnSuccess) {
+            console.log('Attachments column is ready');
+          } else {
+            console.error('Failed to set up attachments column');
+            toast.error('Could not set up attachments support. Some features may not work.');
+          }
+        });
+      }
+    });
+  }, []);
+
   // Query to count test issues
   const { data: testIssuesCount = 0, isLoading: isCountLoading, refetch: refetchCount } = useQuery({
     queryKey: ['test-issues-count'],
@@ -182,6 +211,11 @@ const Admin: React.FC = () => {
     }
   });
   
+  // Handle file upload
+  const handleFileUploaded = (url: string) => {
+    setAttachments(prev => [...prev, url]);
+  };
+
   // Mutation for manually creating a Circle issue for testing
   const createCircleIssueMutation = useMutation({
     mutationFn: async () => {
@@ -190,102 +224,52 @@ const Admin: React.FC = () => {
       }
       
       try {
-        // 1. Create the Circle issue record
-        const circleIssue: CircleIssue = {
-          message_id: messageId,
-          thread_id: threadId || undefined,
-          title,
-          body,
-          author_name: authorName,
-          author_email: authorEmail || undefined,
-          space_id: spaceId || undefined,
-          space_name: spaceName || undefined,
-          link: link || undefined,
-          is_thread: !!threadId,
-          is_triaged: true,
-          triage_confidence: 0.95
+        // Create the unified Circle message JSON structure
+        const circleMessage = {
+          Type: threadId ? 'thread' : 'single',
+          Parent_Message: {
+            chat_thread_id: parseInt(threadId || messageId),
+            message_id: parseInt(messageId),
+            parent_id: null,
+            chat_room_uuid: spaceId || null,
+            space_name: spaceName || 'Test Space',
+            [threadId ? 'parent_sender' : 'sender']: authorName,
+            created_at: new Date().toISOString(),
+            edited_at: null,
+            body: body,
+            attachments: attachments,
+            message_url: link || '',
+            has_replies: false,
+            replies_count: 0
+          },
+          Replies: [],
+          Issue_Details: {
+            is_issue: true,
+            issue_title: title,
+            type: 'Test',
+            reasoning: 'Manually created test issue'
+          }
         };
         
-        // Use the upsert_circle_issue function to create or update the record
+        // Use the upsert_circle_message function to create the record
         const { data, error } = await supabase.rpc(
-          'upsert_circle_issue',
-          {
-            p_message_id: circleIssue.message_id,
-            p_thread_id: circleIssue.thread_id || null,
-            p_title: circleIssue.title,
-            p_body: circleIssue.body,
-            p_author_name: circleIssue.author_name,
-            p_author_email: circleIssue.author_email || null,
-            p_space_name: circleIssue.space_name || null,
-            p_space_id: circleIssue.space_id || null,
-            p_link: circleIssue.link || null,
-            p_is_thread: circleIssue.is_thread || false,
-            p_is_triaged: circleIssue.is_triaged || false,
-            p_triage_confidence: circleIssue.triage_confidence || 0,
-            p_raw_data: null
-          }
+          'upsert_circle_message',
+          { p_raw_json: circleMessage }
         );
         
         if (error) {
-          throw new Error(`Error creating Circle issue: ${error.message}`);
+          throw error;
         }
         
-        // 2. Now create an issue in the issues table from the Circle data
-        const { data: issue, error: createError } = await supabase
-          .from('issues')
-          .insert({
-            title: circleIssue.title,
-            description: `${circleIssue.body}\n\n*Imported from Circle*\n${circleIssue.link || ''}`,
-            tags: ['circle', 'imported'],
-            segment: determineSegment(circleIssue.title, circleIssue.body),
-            status: 'in_progress',
-            submitted_by: profile?.name || authorName,
-            is_test: false // This is real data, not test data
-          })
-          .select()
-          .single();
-          
-        if (createError) {
-          throw new Error(`Error creating issue: ${createError.message}`);
-        }
-        
-        // 3. Update the Circle issue with the mapped issue ID
-        const { error: updateError } = await supabase
-          .from('circle_issues')
-          .update({ mapped_to_issue_id: issue.id })
-          .eq('message_id', circleIssue.message_id);
-          
-        if (updateError) {
-          console.error('Error updating Circle issue mapping:', updateError);
-          // Continue despite error
-        }
-        
-        // 4. Add an import log entry
-        const { error: logError } = await supabase
-          .from('issue_import_logs')
-          .insert({
-            circle_issue_id: data,
-            issue_id: issue.id,
-            imported_by: profile?.name || 'Admin',
-            import_source: 'manual',
-            import_notes: 'Manually created via admin panel',
-            is_automatic: false
-          });
-          
-        if (logError) {
-          console.error('Error creating import log:', logError);
-        }
-        
-        return { circleIssueId: data, issueId: issue.id };
+        toast.success('Circle message created successfully!');
+        return data;
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Unknown error creating Circle issue';
-        throw new Error(message);
+        console.error('Error creating Circle message:', error);
+        throw error;
       }
     },
     onSuccess: () => {
-      toast.success('Successfully created issue from Circle data');
-      
-      // Clear form
+      // Clear the form
       setMessageId('');
       setThreadId('');
       setTitle('');
@@ -295,14 +279,12 @@ const Admin: React.FC = () => {
       setSpaceId('');
       setSpaceName('');
       setLink('');
+      setAttachments([]);
       
-      // Refresh queries
-      queryClient.invalidateQueries({ queryKey: ['all-issues'] });
-      queryClient.invalidateQueries({ queryKey: ['issue-counts'] });
-      queryClient.invalidateQueries({ queryKey: ['status-counts'] });
+      toast.success('Circle message created successfully');
     },
-    onError: (error) => {
-      toast.error(`Failed to create Circle issue: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    onError: (error: any) => {
+      toast.error(`Failed to create Circle message: ${error.message}`);
     }
   });
   
@@ -354,26 +336,415 @@ const Admin: React.FC = () => {
     return 'misc';
   };
 
+  // Mutation for n8n webhook sync
+  const syncCircleIssuesMutation = useMutation({
+    mutationFn: async () => {
+      return await syncCircleMessagesFromN8n();
+    },
+    onSuccess: (data) => {
+      setSyncResult(data);
+      toast.success(`Successfully processed ${data.processedCount} issues`);
+      queryClient.invalidateQueries({ queryKey: ['all-issues'] });
+      queryClient.invalidateQueries({ queryKey: ['issue-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['status-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['circle-messages'] });
+    },
+    onError: (error) => {
+      toast.error(`Failed to sync Circle issues: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  });
+  
+  // Handler for the sync button
+  const handleSyncCircleIssues = async () => {
+    syncCircleIssuesMutation.mutate();
+  };
+
+  // Handle webhook test success
+  const handleWebhookTestSuccess = async (data: any) => {
+    try {
+      console.log('Webhook test response:', data);
+      
+      // Check if we got a valid response
+      if (!data) {
+        toast.warning('Received empty response from webhook');
+        return;
+      }
+      
+      // Process the webhook data directly
+      const result = await processWebhookData(data);
+      
+      // Update the UI with the results
+      setSyncResult(result);
+      
+      // Refresh queries
+      queryClient.invalidateQueries({ queryKey: ['circle-messages'] });
+      queryClient.invalidateQueries({ queryKey: ['all-issues'] });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error processing webhook response';
+      toast.error(message);
+    }
+  };
+
+  // Query to fetch recent Circle issues
+  const { data: circleMessages = [], isLoading: isCircleMessagesLoading } = useQuery({
+    queryKey: ['circle-messages'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('circle_messages')
+        .select('*')
+        .order('imported_at', { ascending: false })
+        .limit(5);
+        
+      if (error) {
+        console.error('Error fetching Circle messages:', error);
+        toast.error('Failed to load Circle messages');
+        throw error;
+      }
+      
+      return data || [];
+    }
+  });
+
+  // Function to create an issue from a Circle message
+  const handleCreateIssueFromCircle = async (messageId: string) => {
+    try {
+      if (!profile?.name) {
+        toast.error('You must be logged in to create an issue');
+        return;
+      }
+      
+      const issueId = await createIssueFromCircleMessage(messageId, profile.name);
+      toast.success('Issue created successfully!');
+      
+      // Refresh queries
+      queryClient.invalidateQueries({ queryKey: ['all-issues'] });
+      queryClient.invalidateQueries({ queryKey: ['circle-messages'] });
+      
+    } catch (error) {
+      console.error('Error creating issue from Circle:', error);
+      toast.error(`Failed to create issue: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   return (
-    <div className="container my-6">
+    <div className="container mx-auto py-6 space-y-8">
       <h1 className="text-2xl font-bold mb-6">Admin Panel</h1>
       
-      <Tabs defaultValue="test-data">
+      <Tabs defaultValue="circle-import" className="w-full">
         <TabsList className="mb-4">
-          <TabsTrigger value="test-data">Test Data Management</TabsTrigger>
-          <TabsTrigger value="circle-sync">Circle Data Sync</TabsTrigger>
+          <TabsTrigger value="circle-import">Circle Import</TabsTrigger>
+          <TabsTrigger value="n8n-sync">n8n Sync</TabsTrigger>
+          <TabsTrigger value="n8n-test">n8n Webhook Test</TabsTrigger>
+          <TabsTrigger value="circle-mock-data">Circle Mock Data</TabsTrigger>
+          <TabsTrigger value="recent-issues">Recent Issues</TabsTrigger>
+          <TabsTrigger value="test-data">Test Data Manager</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="test-data">
+        <TabsContent value="circle-import" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Test Issues Management</CardTitle>
+              <CardTitle>Manual Circle Data Import</CardTitle>
+              <CardDescription>
+                Manually create a Circle.so issue for testing the import process.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="messageId">Message ID (required)</Label>
+                <Input 
+                  id="messageId" 
+                  placeholder="Unique Circle message ID" 
+                  value={messageId}
+                  onChange={(e) => setMessageId(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="threadId">Thread ID (optional)</Label>
+                <Input 
+                  id="threadId" 
+                  placeholder="Circle thread ID" 
+                  value={threadId}
+                  onChange={(e) => setThreadId(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="title">Title (required)</Label>
+                <Input 
+                  id="title" 
+                  placeholder="Issue title" 
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="body">Body (required)</Label>
+                <Textarea 
+                  id="body" 
+                  placeholder="Issue description" 
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  required
+                  rows={5}
+                />
+              </div>
+              
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="authorName">Author Name (required)</Label>
+                  <Input 
+                    id="authorName" 
+                    placeholder="Name of the person who reported the issue" 
+                    value={authorName}
+                    onChange={(e) => setAuthorName(e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="authorEmail">Author Email</Label>
+                  <Input 
+                    id="authorEmail" 
+                    placeholder="Email of the person who reported the issue" 
+                    value={authorEmail}
+                    onChange={(e) => setAuthorEmail(e.target.value)}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="spaceName">Space Name</Label>
+                  <Input 
+                    id="spaceName" 
+                    placeholder="Circle space name" 
+                    value={spaceName}
+                    onChange={(e) => setSpaceName(e.target.value)}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="spaceId">Space ID</Label>
+                  <Input 
+                    id="spaceId" 
+                    placeholder="Circle space ID" 
+                    value={spaceId}
+                    onChange={(e) => setSpaceId(e.target.value)}
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="link">Link to Circle Message</Label>
+                <Input 
+                  id="link" 
+                  placeholder="URL to the Circle message" 
+                  value={link}
+                  onChange={(e) => setLink(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Attachments</Label>
+                <FileUploader 
+                  onFileUploaded={handleFileUploaded}
+                  maxFiles={3}
+                />
+              </div>
+              
+              <Button 
+                className="w-full mt-4"
+                disabled={createCircleIssueMutation.isPending || !messageId || !title || !body || !authorName}
+                onClick={() => createCircleIssueMutation.mutate()}
+              >
+                {createCircleIssueMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...
+                  </>
+                ) : (
+                  <>
+                    <ArrowRight className="h-4 w-4 mr-2" /> Create Circle Issue & Convert to Bug
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="n8n-sync" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>n8n Circle.so Sync</CardTitle>
+              <CardDescription>
+                Fetch new issues from Circle.so via the n8n webhook and import them into the bug tracker.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Webhook Information</AlertTitle>
+                <AlertDescription>
+                  This will trigger the n8n webhook at <code>https://jayeworkflow.app.n8n.cloud/webhook-test/issue-update</code> to 
+                  fetch and process Circle.so issues. Make sure the webhook is properly configured and active.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="flex justify-between items-center">
+                <Button 
+                  onClick={handleSyncCircleIssues} 
+                  disabled={syncCircleIssuesMutation.isPending}
+                  variant="default"
+                  className="space-x-2"
+                >
+                  {syncCircleIssuesMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Syncing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4" />
+                      <span>Run Issue Sync</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              {syncResult && (
+                <div className="mt-4 space-y-4">
+                  <h3 className="text-lg font-medium">Sync Results</h3>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-green-50 p-4 rounded border border-green-200">
+                      <p className="text-sm text-green-800 font-medium">Processed</p>
+                      <p className="text-3xl font-bold text-green-600">{syncResult.processedCount}</p>
+                    </div>
+                    <div className="bg-blue-50 p-4 rounded border border-blue-200">
+                      <p className="text-sm text-blue-800 font-medium">Imported</p>
+                      <p className="text-3xl font-bold text-blue-600">{syncResult.importedIds.length}</p>
+                    </div>
+                    <div className="bg-red-50 p-4 rounded border border-red-200">
+                      <p className="text-sm text-red-800 font-medium">Errors</p>
+                      <p className="text-3xl font-bold text-red-600">{syncResult.errors.length}</p>
+                    </div>
+                  </div>
+                  
+                  {syncResult.errors.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-md font-medium text-red-800">Error Details</h4>
+                      <ul className="list-disc pl-5 mt-2 space-y-1">
+                        {syncResult.errors.map((error, index) => (
+                          <li key={index} className="text-sm text-red-600">{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="n8n-test" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>n8n Webhook Direct Testing</CardTitle>
+              <CardDescription>
+                Test the n8n webhook directly without going through the sync process. This helps debug issues with the n8n webhook.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Important</AlertTitle>
+                <AlertDescription>
+                  Make sure your n8n workflow is active and listening for webhook triggers before testing.
+                </AlertDescription>
+              </Alert>
+              
+              <WebhookTester 
+                webhookUrl="https://jayeworkflow.app.n8n.cloud/webhook-test/issue-update"
+                onSuccess={handleWebhookTestSuccess}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="circle-mock-data" className="space-y-4">
+          <CircleMockData />
+        </TabsContent>
+        
+        <TabsContent value="recent-issues" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Circle.so Issues</CardTitle>
+              <CardDescription>
+                View recently imported issues from Circle.so including their attachments.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isCircleMessagesLoading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : circleMessages.length > 0 ? (
+                <div className="space-y-6">
+                  {circleMessages.map((message: any) => (
+                    <div key={message.id} className="border rounded-md p-4 space-y-3">
+                      <div className="flex justify-between">
+                        <h3 className="font-medium">{message.issue_title || message.title}</h3>
+                        <span className="text-sm text-muted-foreground">
+                          {new Date(message.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{message.body}</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs bg-gray-100 rounded-full px-2 py-1">
+                          {message.sender || message.author_name}
+                        </span>
+                        {message.mapped_to_issue_id ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/issues/${message.mapped_to_issue_id}`)}
+                          >
+                            View Issue <ArrowRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleCreateIssueFromCircle(message.id)}
+                          >
+                            Create Issue <ArrowRight className="ml-2 h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  No Circle messages found. Use the webhook to import some.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="test-data" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Test Data Management</CardTitle>
               <CardDescription>
                 Manage test issues in the database. Test issues are issues that have the is_test flag set to true.
               </CardDescription>
             </CardHeader>
             
-            <CardContent>
+            <CardContent className="space-y-4">
               <Alert className="mb-6">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Warning</AlertTitle>
@@ -435,162 +806,6 @@ const Admin: React.FC = () => {
               <p className="text-sm text-muted-foreground">
                 The is_test flag helps identify which issues can be safely deleted without affecting real data.
               </p>
-            </CardFooter>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="circle-sync">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Circle className="h-5 w-5 mr-2" /> Circle Data Sync
-              </CardTitle>
-              <CardDescription>
-                Manually create a test Circle issue for development purposes.
-                This simulates the n8n workflow that will automatically import issues from Circle.
-              </CardDescription>
-            </CardHeader>
-            
-            <CardContent>
-              <Alert className="mb-6">
-                <Download className="h-4 w-4" />
-                <AlertTitle>Test the Pipeline</AlertTitle>
-                <AlertDescription>
-                  Use this form to create a sample Circle issue and transform it into a bug tracker issue.
-                  This will help test the data pipeline without needing to set up the full n8n integration.
-                </AlertDescription>
-              </Alert>
-              
-              <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="messageId">Message ID (required)</Label>
-                    <Input 
-                      id="messageId" 
-                      placeholder="Unique Circle message ID" 
-                      value={messageId}
-                      onChange={(e) => setMessageId(e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="threadId">Thread ID (optional)</Label>
-                    <Input 
-                      id="threadId" 
-                      placeholder="Circle thread ID" 
-                      value={threadId}
-                      onChange={(e) => setThreadId(e.target.value)}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="title">Title (required)</Label>
-                  <Input 
-                    id="title" 
-                    placeholder="Issue title" 
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="body">Body (required)</Label>
-                  <Textarea 
-                    id="body" 
-                    placeholder="Issue description" 
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    required
-                    rows={5}
-                  />
-                </div>
-                
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="authorName">Author Name (required)</Label>
-                    <Input 
-                      id="authorName" 
-                      placeholder="Name of the person who reported the issue" 
-                      value={authorName}
-                      onChange={(e) => setAuthorName(e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="authorEmail">Author Email</Label>
-                    <Input 
-                      id="authorEmail" 
-                      placeholder="Email of the person who reported the issue" 
-                      value={authorEmail}
-                      onChange={(e) => setAuthorEmail(e.target.value)}
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="spaceName">Space Name</Label>
-                    <Input 
-                      id="spaceName" 
-                      placeholder="Circle space name" 
-                      value={spaceName}
-                      onChange={(e) => setSpaceName(e.target.value)}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="spaceId">Space ID</Label>
-                    <Input 
-                      id="spaceId" 
-                      placeholder="Circle space ID" 
-                      value={spaceId}
-                      onChange={(e) => setSpaceId(e.target.value)}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="link">Link to Circle Message</Label>
-                  <Input 
-                    id="link" 
-                    placeholder="URL to the Circle message" 
-                    value={link}
-                    onChange={(e) => setLink(e.target.value)}
-                  />
-                </div>
-                
-                <Button 
-                  className="w-full mt-4"
-                  disabled={createCircleIssueMutation.isPending || !messageId || !title || !body || !authorName}
-                  onClick={() => createCircleIssueMutation.mutate()}
-                >
-                  {createCircleIssueMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...
-                    </>
-                  ) : (
-                    <>
-                      <ArrowRight className="h-4 w-4 mr-2" /> Create Circle Issue & Convert to Bug
-                    </>
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-            
-            <CardFooter className="flex flex-col items-start border-t pt-6">
-              <p className="text-sm text-muted-foreground mb-2">
-                In production, an n8n workflow will automatically:
-              </p>
-              <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
-                <li>Fetch messages from Circle using the Circle API</li>
-                <li>Use Claude to analyze and triage potential issues</li>
-                <li>Store triaged issues in the circle_issues table</li>
-                <li>Create corresponding bug tracker issues</li>
-              </ol>
             </CardFooter>
           </Card>
         </TabsContent>

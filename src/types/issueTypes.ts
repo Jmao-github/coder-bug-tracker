@@ -41,3 +41,26 @@ export type NewIssue = {
 }
 
 export type NewComment = Omit<Comment, 'id' | 'created_at'>;
+
+interface CircleMessageMapping {
+  // Source fields → Bug tracker fields
+  id: string;                   // UUID for the bug tracker issue
+  title: string;                // From message.content.issue_title
+  type: 'Auth/Login' | 'Code Generation' | 'Tool' | 'Other'; // Normalized from message.content.type
+  description: string;          // From body or parent_body (with formatted replies)
+  chatRoomName: string;         // Looked up via chat_room_uuid from circle_spaces table
+  authorName: string;           // From sender.name or parent_sender
+  createdAt: string;            // From created_at or parent_created_at
+  status: string;               // Default to 'waiting_for_help' for new imports
+  repliesCount: number;         // From replies_count
+  segment: 'auth' | 'code' | 'tool' | 'misc'; // Derived from type mapping:
+                                // 'Auth/Login' → 'auth'
+                                // 'Code Generation' → 'code'
+                                // 'Tool' → 'tool'
+                                // 'Other' → 'misc'
+}
+
+// Order issue cards by descending created_at timestamp
+const sortedIssues = issues.sort((a, b) => 
+  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+);

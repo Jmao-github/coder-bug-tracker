@@ -65,8 +65,11 @@ const StatusTiles: React.FC<StatusTilesProps> = ({
   activeStatus, 
   onStatusChange 
 }) => {
+  // Ensure we have a valid object to prevent errors
+  const safeStatusCounts = statusCounts || {} as Record<IssueStatus, number>;
+  
   // Total count for contextual info
-  const totalIssues = Object.values(statusCounts).reduce((sum, count) => sum + count, 0);
+  const totalIssues = Object.values(safeStatusCounts).reduce((sum, count) => sum + count, 0);
   
   // Function to handle status tile click
   const handleStatusClick = (status: IssueStatus) => {
@@ -86,7 +89,7 @@ const StatusTiles: React.FC<StatusTilesProps> = ({
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
         {Object.entries(STATUS_CONFIG).map(([status, config]) => {
-          const count = statusCounts[status as IssueStatus] || 0;
+          const count = safeStatusCounts[status as IssueStatus] || 0;
           const isActive = activeStatus === status;
           const percentage = totalIssues > 0 ? Math.round((count / totalIssues) * 100) : 0;
           
@@ -111,6 +114,7 @@ const StatusTiles: React.FC<StatusTilesProps> = ({
                   key={`${status}-${count}`}
                   initial={{ scale: 0.8, opacity: 0.5 }}
                   animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
                   className="text-xl font-bold mt-1"
                 >
                   {count}

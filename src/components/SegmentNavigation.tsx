@@ -61,7 +61,9 @@ const SegmentNavigation: React.FC<SegmentNavigationProps> = ({
   onSegmentChange, 
   segmentCounts 
 }) => {
-  const [prevCounts, setPrevCounts] = useState<Record<string, number>>(segmentCounts);
+  // Ensure we have a valid object to prevent errors
+  const safeSegmentCounts = segmentCounts || {};
+  const [prevCounts, setPrevCounts] = useState<Record<string, number>>(safeSegmentCounts);
   const [statusBreakdown, setStatusBreakdown] = useState<Record<string, Record<string, number>>>({});
 
   // Get issue data for status breakdown in tooltips
@@ -103,18 +105,18 @@ const SegmentNavigation: React.FC<SegmentNavigationProps> = ({
 
   // Detect count changes for animation
   useEffect(() => {
-    setPrevCounts(segmentCounts);
-  }, [segmentCounts]);
+    setPrevCounts(safeSegmentCounts);
+  }, [safeSegmentCounts]);
 
   // Determine if count has changed for animation
   const hasCountChanged = (segment: string) => {
-    return prevCounts[segment] !== segmentCounts[segment];
+    return prevCounts[segment] !== safeSegmentCounts[segment];
   };
 
   // Sort categories by count (descending)
   const sortedCategories = [...CATEGORIES].sort((a, b) => {
-    const countA = segmentCounts[a.id] || 0;
-    const countB = segmentCounts[b.id] || 0;
+    const countA = safeSegmentCounts[a.id] || 0;
+    const countB = safeSegmentCounts[b.id] || 0;
     return countB - countA;
   });
 
@@ -134,7 +136,7 @@ const SegmentNavigation: React.FC<SegmentNavigationProps> = ({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       {sortedCategories.map((segment) => {
-        const count = segmentCounts[segment.id] || 0;
+        const count = safeSegmentCounts[segment.id] || 0;
         const isZeroCount = count === 0;
         
         return (
@@ -157,6 +159,7 @@ const SegmentNavigation: React.FC<SegmentNavigationProps> = ({
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
+                        transition={{ duration: 0.3 }}
                         className={`text-4xl font-bold mb-1 ${isZeroCount ? 'text-gray-400' : ''}`}
                       >
                         {count}
