@@ -451,14 +451,58 @@ export const createIssueFromCircleMessage = async (circleMessageId: string, subm
 /**
  * Directly processes webhook data through Supabase
  * For when data is received directly and not via n8n
- * @param webhookData The raw webhook JSON data
+ * @param webhookData The raw webhook JSON data (single item or array)
  * @returns Processing results
  */
 export const processWebhookData = async (webhookData: any): Promise<SyncResult> => {
   try {
     console.log('Processing webhook data directly');
     
-    // Call the Supabase function to process the webhook data
+    // Check if the data is an array - use our batch handler instead of RPC
+    if (Array.isArray(webhookData)) {
+      console.log(`Processing batch of ${webhookData.length} items sequentially`);
+      const results: SyncResult = {
+        processedCount: 0,
+        importedIds: [],
+        errors: []
+      };
+      
+      // Process each item individually
+      for (const item of webhookData) {
+        try {
+          // Process each item using process_circle_webhook
+          const { data, error } = await supabase.rpc(
+            'process_circle_webhook',
+            { 
+              p_payload: item,
+              p_import_source: 'direct_api',
+              p_imported_by: 'system'
+            }
+          );
+          
+          if (error) {
+            console.error('Error processing item:', error);
+            results.errors.push(`Error processing item: ${error.message}`);
+            continue;
+          }
+          
+          // Count as processed
+          results.processedCount++;
+          
+          // Add to imported list if we have a circle_issue_id
+          if (data && data.circle_issue_id) {
+            results.importedIds.push(data.circle_issue_id);
+          }
+        } catch (err) {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          results.errors.push(`Exception: ${errorMessage}`);
+        }
+      }
+      
+      return results;
+    }
+    
+    // Handle single item - use the handle_circle_webhook RPC
     const { data, error } = await supabase.rpc(
       'handle_circle_webhook',
       { request: webhookData }

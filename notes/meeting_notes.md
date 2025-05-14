@@ -197,6 +197,13 @@
 - Implemented thread reply rendering using Markdown quotes
 - Enhanced IssueCard component with null-safety checks to prevent rendering errors
 
+**Next Steps:**
+- Connect implementation with n8n workflow for automated imports
+- Add validation for thread replies and ensure proper formatting
+- Create admin interface for managing Circle.so space mappings
+- Implement batch import capability for historical data
+- Add notification system for newly imported issues
+
 ### 2025-05-12T11:56:05.873-04:00 | Version History Update
 
 ### 2025-05-12T11:56:05.873-04:00 | Circle Data Processing Finalization
@@ -410,3 +417,32 @@
   6. Created and validated robust webhook processing and upsert logic for Circle.so payloads.
   7. Ran tests with actual payloads to confirm schema and logic correctness.
 - **Next Steps**: Move to new features and deeper analytics, as the core data pipeline and schema are now stable and production-ready.
+
+### 2025-05-14T20:26:15.529-04:00 | n8n Webhook Processing Implementation
+- **Decision**: Completely redesigned n8n webhook processing to handle batch data and fix RLS issues
+- **Rationale**: Ensures reliable data import from n8n webhook with proper error handling and security
+- **Alternatives Considered**:
+  - Handling webhook processing entirely in frontend JavaScript: Rejected for database consistency reasons
+  - Creating separate microservice for webhook handling: Rejected for unnecessary complexity
+  - Using Edge Functions instead of database functions: Rejected for data consistency and transaction support
+
+**Implementation Details:**
+1. Fixed RLS policies on circle_issues, circle_replies, and issue_import_logs tables
+2. Added SECURITY DEFINER to webhook processing functions to bypass RLS restrictions
+3. Enhanced database functions to handle both single items and arrays (batch processing)
+4. Simplified the Admin panel to focus solely on webhook functionality
+5. Implemented better error handling and error display
+6. Created detailed documentation in notes/webhook_processing_implementation.md
+7. Simplified database schema by consolidating tables and removing duplicates
+
+**Notable Technical Solutions:**
+- Used ProcessBatchDirectly approach to efficiently process arrays of webhook items
+- Implemented strategic fallbacks for handling field name variations in the incoming data
+- Created mapping logic to normalize segment types between external and internal values
+- Enhanced the Admin UI to display detailed processing statistics
+- Added comprehensive error handling to continue processing despite individual item failures
+
+**Next Steps:**
+- Monitor webhook performance with real data
+- Consider implementing bulk insert optimization for very large batches
+- Add more sophisticated data validation and preprocessing
